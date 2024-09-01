@@ -1,0 +1,28 @@
+# VPN Detector for Android
+
+A research and diagnostic Android app that detects active VPN connections on the device using the same signals that anti-fraud SDKs rely on.
+
+## Motivation
+
+Mobile anti-fraud SDKs in banking, e-commerce, and identity-verification apps silently fingerprint devices for VPN usage. The detection signals they use are undocumented and scattered across Android APIs. This project collects and implements those signals in a single open-source app, so that:
+
+- **Security researchers** can study what data anti-fraud SDKs actually harvest
+- **Privacy-conscious users** can see exactly what their device reveals about VPN usage
+- **QA engineers** can verify that their VPN-detection logic triggers correctly on test devices
+
+## Status
+
+Project scaffold — no detection logic yet. See [ROADMAP.md](ROADMAP.md) for planned features.
+
+## Build
+
+```bash
+./gradlew :app:assembleDebug
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
+
+Requirements: Android Studio / JDK 17 / Android SDK 35. Min device: Android 8 (API 26).
+
+## License
+
+MIT
