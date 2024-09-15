@@ -3,10 +3,7 @@
 ## Done
 
 - [x] Project scaffold (Gradle, Compose, empty activity)
-
-## Planned
-
-- [ ] Basic VPN flag detection (TRANSPORT_VPN)
+- [x] Basic VPN flag detection (TRANSPORT_VPN)
 - [ ] Extended system checks (tunnel interfaces, routes, proxy)
 - [ ] Network-level checks (DNS, MTU, Private DNS)
 - [ ] Installed VPN app detection

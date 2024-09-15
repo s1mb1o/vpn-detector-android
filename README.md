@@ -10,9 +10,13 @@ Mobile anti-fraud SDKs in banking, e-commerce, and identity-verification apps si
 - **Privacy-conscious users** can see exactly what their device reveals about VPN usage
 - **QA engineers** can verify that their VPN-detection logic triggers correctly on test devices
 
-## Status
+## What it checks
 
-Project scaffold — no detection logic yet. See [ROADMAP.md](ROADMAP.md) for planned features.
+Currently implemented:
+
+- **System** — `TRANSPORT_VPN` flag (ConnectivityManager)
+
+See [ROADMAP.md](ROADMAP.md) for planned features.
 
 ## Build
 
