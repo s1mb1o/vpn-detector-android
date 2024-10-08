@@ -14,7 +14,7 @@ Mobile anti-fraud SDKs in banking, e-commerce, and identity-verification apps si
 
 Currently implemented:
 
-- **System** — `TRANSPORT_VPN` flag (ConnectivityManager)
+- **System** — `TRANSPORT_VPN` flag, `NET_CAPABILITY_NOT_VPN`, tunnel interface enumeration, active interface name, default route via tunnel
 
 See [ROADMAP.md](ROADMAP.md) for planned features.
 

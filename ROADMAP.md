@@ -4,7 +4,7 @@
 
 - [x] Project scaffold (Gradle, Compose, empty activity)
 - [x] Basic VPN flag detection (TRANSPORT_VPN)
-- [ ] Extended system checks (tunnel interfaces, routes, proxy)
+- [x] Extended system checks (tunnel interfaces, active iface, default route)
 - [ ] Network-level checks (DNS, MTU, Private DNS)
 - [ ] Installed VPN app detection
 - [ ] Verdict scoring system (HARD/SOFT/INFO/PASS severity model)
