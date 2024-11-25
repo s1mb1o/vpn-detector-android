@@ -17,6 +17,23 @@ import java.net.NetworkInterface
  */
 object SystemChecks {
 
+    private val KNOWN_VPN_PACKAGES = listOf(
+        "com.wireguard.android",
+        "ch.protonvpn.android",
+        "net.mullvad.mullvadvpn",
+        "com.nordvpn.android",
+        "com.expressvpn.vpn",
+        "com.surfshark.vpnclient.android",
+        "de.blinkt.openvpn",
+        "net.openvpn.openvpn",
+        "com.adguard.vpn",
+        "app.intra",
+        "org.proxydroid",
+        "org.torproject.android",
+        "com.guardianproject.netcipher",
+        "com.sshtunnel.ssht",
+    )
+
     private val KNOWN_PUBLIC_DNS = mapOf(
         "1.1.1.1" to "Cloudflare",
         "1.0.0.1" to "Cloudflare",
@@ -237,7 +254,82 @@ object SystemChecks {
             )
         }
 
-        // 11. Wi-Fi SSID (requires location permission on Android 10+)
+        // 11. Installed VPN apps (SOFT — could be corp VPN, paid commercial)
+        run {
+            val pm = ctx.packageManager
+            val installed = KNOWN_VPN_PACKAGES.filter { pkg ->
+                runCatching {
+                    pm.getPackageInfo(pkg, 0); true
+                }.getOrDefault(false)
+            }
+            out += Check(
+                id = "installed_vpn_apps",
+                category = Category.SYSTEM,
+                label = "Known VPN clients installed",
+                value = if (installed.isEmpty()) "none" else installed.joinToString(),
+                severity = if (installed.isNotEmpty()) Severity.SOFT else Severity.PASS,
+                explanation = "PackageManager scan for known VPN client package names. " +
+                    "SOFT because these have legitimate work / privacy uses.",
+            )
+        }
+
+        // 12. Mock location enabled (best effort)
+        run {
+            val mock = runCatching {
+                @Suppress("DEPRECATION")
+                Settings.Secure.getString(ctx.contentResolver, Settings.Secure.ALLOW_MOCK_LOCATION)
+            }.getOrNull()
+            val on = mock != null && mock != "0"
+            out += Check(
+                id = "mock_location",
+                category = Category.SYSTEM,
+                label = "Mock location",
+                value = mock ?: "n/a",
+                severity = if (on) Severity.SOFT else Severity.PASS,
+                explanation = "Anti-fraud SDKs penalize mock-location-capable devices.",
+            )
+        }
+
+        // 13. Developer options / ADB
+        run {
+            val dev = runCatching {
+                Settings.Global.getInt(ctx.contentResolver,
+                    Settings.Global.DEVELOPMENT_SETTINGS_ENABLED, 0)
+            }.getOrDefault(0)
+            val adb = runCatching {
+                Settings.Global.getInt(ctx.contentResolver, Settings.Global.ADB_ENABLED, 0)
+            }.getOrDefault(0)
+            out += Check(
+                id = "dev_options",
+                category = Category.SYSTEM,
+                label = "Developer options / ADB",
+                value = "dev=$dev adb=$adb",
+                severity = Severity.INFO,
+                explanation = "Diagnostic context. Often co-occurs with VPN setups but not a VPN signal itself.",
+            )
+        }
+
+        // 14. Root indicators (cheap heuristic)
+        run {
+            val suExists = listOf(
+                "/system/bin/su", "/system/xbin/su", "/sbin/su",
+                "/su/bin/su", "/system/app/Superuser.apk", "/data/adb/magisk",
+            ).any { java.io.File(it).exists() }
+            val magiskPkg = runCatching {
+                ctx.packageManager.getPackageInfo("com.topjohnwu.magisk", 0); true
+            }.getOrDefault(false)
+            val rooted = suExists || magiskPkg
+            out += Check(
+                id = "root",
+                category = Category.SYSTEM,
+                label = "Root indicators",
+                value = if (rooted) "rooted (su=$suExists magisk=$magiskPkg)" else "stock",
+                severity = if (rooted) Severity.SOFT else Severity.PASS,
+                explanation = "Heuristic: su binary or Magisk presence. Combined with VPN amplifies suspicion.",
+            )
+        }
+
+        // 15. Wi-Fi SSID (requires location permission on Android 10+)
         run {
             val hasFine = ContextCompat.checkSelfPermission(
                 ctx, Manifest.permission.ACCESS_FINE_LOCATION

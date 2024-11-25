@@ -6,7 +6,7 @@
 - [x] Basic VPN flag detection (TRANSPORT_VPN)
 - [x] Extended system checks (tunnel interfaces, active iface, default route)
 - [x] Network-level checks (HTTP proxy, DNS, MTU, Private DNS)
-- [ ] Installed VPN app detection
+- [x] Installed VPN app detection, root/mock/dev indicators
 - [ ] Verdict scoring system (HARD/SOFT/INFO/PASS severity model)
 - [ ] GeoIP probes (multiple providers, external IP lookup)
 - [ ] GeoIP analysis (ASN classification, datacenter detection, probe agreement)
