@@ -7,7 +7,7 @@
 - [x] Extended system checks (tunnel interfaces, active iface, default route)
 - [x] Network-level checks (HTTP proxy, DNS, MTU, Private DNS)
 - [x] Installed VPN app detection, root/mock/dev indicators
-- [ ] Verdict scoring system (HARD/SOFT/INFO/PASS severity model)
+- [x] Verdict scoring system (HARD/SOFT/INFO/PASS severity model)
 - [ ] GeoIP probes (multiple providers, external IP lookup)
 - [ ] GeoIP analysis (ASN classification, datacenter detection, probe agreement)
 - [ ] Consistency checks (SIM vs IP, locale vs IP, timezone vs IP)

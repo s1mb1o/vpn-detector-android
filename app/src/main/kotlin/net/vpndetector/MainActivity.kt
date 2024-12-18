@@ -5,6 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -29,6 +30,9 @@ import androidx.compose.ui.unit.dp
 import net.vpndetector.detect.Check
 import net.vpndetector.detect.Severity
 import net.vpndetector.detect.SystemChecks
+import net.vpndetector.detect.Verdict
+import net.vpndetector.detect.VerdictAggregator
+import net.vpndetector.detect.VerdictLevel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -37,14 +41,19 @@ class MainActivity : ComponentActivity() {
             MaterialTheme {
                 Surface {
                     var checks by remember { mutableStateOf<List<Check>>(emptyList()) }
-                    Column(
-                        Modifier.fillMaxSize().padding(16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        Button(onClick = { checks = SystemChecks.run(this@MainActivity) }) {
+                    var verdict by remember { mutableStateOf<Verdict?>(null) }
+                    Column(Modifier.fillMaxSize()) {
+                        VerdictBar(verdict)
+                        Button(
+                            onClick = {
+                                checks = SystemChecks.run(this@MainActivity)
+                                verdict = VerdictAggregator.aggregate(checks)
+                            },
+                            modifier = Modifier.align(Alignment.CenterHorizontally).padding(8.dp),
+                        ) {
                             Text("Run checks")
                         }
-                        LazyColumn(Modifier.fillMaxSize().padding(top = 8.dp)) {
+                        LazyColumn(Modifier.fillMaxSize().padding(horizontal = 8.dp)) {
                             items(checks, key = { it.id }) { c ->
                                 CheckRow(c)
                             }
@@ -52,6 +61,29 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun VerdictBar(v: Verdict?) {
+    val (color, label) = when (v?.level) {
+        VerdictLevel.CLEAN -> Color(0xFF1B5E20) to "CLEAN"
+        VerdictLevel.SUSPICIOUS -> Color(0xFFE65100) to "SUSPICIOUS"
+        VerdictLevel.DETECTED -> Color(0xFFB71C1C) to "DETECTED"
+        null -> Color(0xFF424242) to "— no run yet —"
+    }
+    Column(
+        Modifier.fillMaxWidth().background(color).padding(16.dp),
+    ) {
+        Text(label, color = Color.White, fontWeight = FontWeight.Bold)
+        if (v != null) {
+            Text(
+                "score=${v.score}  hard=${v.hardCount}  soft=${v.softCount}",
+                color = Color.White,
+            )
+        } else {
+            Text("Tap \"Run checks\" to start.", color = Color.White)
         }
     }
 }
