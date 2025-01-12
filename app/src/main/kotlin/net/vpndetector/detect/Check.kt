@@ -10,7 +10,7 @@ package net.vpndetector.detect
  */
 enum class Severity { HARD, SOFT, INFO, PASS }
 
-enum class Category { SYSTEM }
+enum class Category { SYSTEM, GEOIP }
 
 data class Check(
     val id: String,

@@ -8,7 +8,7 @@
 - [x] Network-level checks (HTTP proxy, DNS, MTU, Private DNS)
 - [x] Installed VPN app detection, root/mock/dev indicators
 - [x] Verdict scoring system (HARD/SOFT/INFO/PASS severity model)
-- [ ] GeoIP probes (multiple providers, external IP lookup)
+- [x] GeoIP probes (6 providers: ipify, ipinfo, ip-api, ifconfig.co, myip.com, Cloudflare)
 - [ ] GeoIP analysis (ASN classification, datacenter detection, probe agreement)
 - [ ] Consistency checks (SIM vs IP, locale vs IP, timezone vs IP)
 - [ ] Tabbed UI per detection category
