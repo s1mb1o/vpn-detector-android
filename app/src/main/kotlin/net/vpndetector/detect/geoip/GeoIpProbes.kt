@@ -9,9 +9,18 @@ import kotlinx.serialization.Serializable
 import okhttp3.Request
 import net.vpndetector.detect.Category
 import net.vpndetector.detect.Check
+import net.vpndetector.detect.DetailEntry
 import net.vpndetector.detect.Severity
 import net.vpndetector.net.AppJson
 import net.vpndetector.net.Http
+
+private val DATACENTER_KEYWORDS = listOf(
+    "digitalocean", "amazon", "aws", "hetzner", "ovh", "linode",
+    "vultr", "choopa", "google llc", "google cloud", "microsoft",
+    "azure", "m247", "quadranet", "leaseweb", "cloudflare", "datacamp",
+    "contabo", "scaleway", "online sas", "psychz", "hosthatch",
+    "vps", "host", "cloud",
+)
 
 /**
  * GeoIP probes. Each probe queries a free GeoIP service and returns a [ProbeResult].
@@ -47,9 +56,11 @@ object GeoIpProbes {
         }
     }
 
-    /** Convert raw probe results into displayable Check rows (info-only for now). */
     fun derive(results: List<ProbeResult>): List<Check> {
         val out = mutableListOf<Check>()
+        val ok = results.filter { it.error == null && it.ip != null }
+
+        // Per-probe info rows
         for (r in results) {
             val v = if (r.error != null) {
                 "ERROR: ${r.error}"
@@ -65,6 +76,119 @@ object GeoIpProbes {
                 explanation = "Raw GeoIP probe result.",
             )
         }
+
+        // External country (canonical)
+        val country = ok.map { it.country?.uppercase() }.firstOrNull { !it.isNullOrEmpty() }
+        out += Check(
+            id = "external_country",
+            category = Category.GEOIP,
+            label = "External country",
+            value = country ?: "?",
+            severity = Severity.INFO,
+            explanation = "What the world sees. Real verdict comes from Consistency checks.",
+        )
+
+        // ASN class — datacenter detection
+        val asnDetails = results.map { p ->
+            val org = p.org ?: p.asn
+            val dcMatch = if (org != null) {
+                DATACENTER_KEYWORDS.firstOrNull { org.contains(it, ignoreCase = true) }
+            } else null
+            val verdict = when {
+                p.error != null -> Severity.INFO
+                org == null -> Severity.INFO
+                dcMatch != null -> Severity.HARD
+                else -> Severity.PASS
+            }
+            val reported = when {
+                p.error != null -> "ERROR: ${p.error}"
+                org == null -> "(no org field)"
+                dcMatch != null -> "$org  ←  matched \"$dcMatch\""
+                else -> org
+            }
+            DetailEntry(source = p.provider, reported = reported, verdict = verdict)
+        }
+        val isDc = asnDetails.any { it.verdict == Severity.HARD }
+        val firstOrg = ok.firstNotNullOfOrNull { it.org } ?: "?"
+        out += Check(
+            id = "asn_class",
+            category = Category.GEOIP,
+            label = "ASN organisation",
+            value = firstOrg,
+            severity = if (isDc) Severity.HARD else Severity.PASS,
+            explanation = "Datacenter ASNs (DigitalOcean/AWS/Hetzner/OVH/etc.) = HARD VPN signal. " +
+                "Residential ISP ASNs are clean. Tap to see what each probe returned.",
+            details = asnDetails,
+        )
+
+        // Reputation flags
+        val repDetails = results.map { p ->
+            val fields = buildList {
+                if (p.isProxy == true) add("proxy=true")
+                if (p.isHosting == true) add("hosting=true")
+                if (p.isVpn == true) add("vpn=true")
+                if (p.isProxy == false) add("proxy=false")
+                if (p.isHosting == false) add("hosting=false")
+                if (p.isVpn == false) add("vpn=false")
+            }
+            val verdict = when {
+                p.error != null -> Severity.INFO
+                p.isProxy == true || p.isHosting == true || p.isVpn == true -> Severity.HARD
+                fields.isEmpty() -> Severity.INFO
+                else -> Severity.PASS
+            }
+            val reported = when {
+                p.error != null -> "ERROR: ${p.error}"
+                fields.isEmpty() -> "(provider does not expose proxy/hosting/vpn fields)"
+                else -> fields.joinToString(", ")
+            }
+            DetailEntry(source = p.provider, reported = reported, verdict = verdict)
+        }
+        val flagged = repDetails.any { it.verdict == Severity.HARD }
+        out += Check(
+            id = "reputation_flag",
+            category = Category.GEOIP,
+            label = "Probe reputation flag",
+            value = if (flagged) "flagged" else "clean",
+            severity = if (flagged) Severity.HARD else Severity.PASS,
+            explanation = "Anti-fraud flag from a GeoIP probe. ip-api.com returns proxy/hosting; " +
+                "Cloudflare cdn-cgi/trace exposes warp/gateway flags. " +
+                "Tap to see which provider returned what.",
+            details = repDetails,
+        )
+
+        // Probe IP agreement
+        val ipDetails = results.map { p ->
+            DetailEntry(
+                source = p.provider,
+                reported = p.error?.let { "ERROR: $it" } ?: (p.ip ?: "?"),
+                verdict = if (p.error != null || p.ip == null) Severity.INFO else Severity.PASS,
+            )
+        }
+        val ips = ok.mapNotNull { it.ip }.toSet()
+        out += Check(
+            id = "probe_ip_agreement",
+            category = Category.GEOIP,
+            label = "Probe IP agreement",
+            value = if (ips.size <= 1) ips.firstOrNull() ?: "?" else "${ips.size} different IPs",
+            severity = if (ips.size > 1) Severity.HARD else Severity.PASS,
+            explanation = "Different probes seeing different external IPs = split routing leak.",
+            details = ipDetails,
+        )
+
+        // Probe country agreement
+        val countries = ok.mapNotNull { it.country?.uppercase() }.toSet()
+        if (countries.size > 1) {
+            out += Check(
+                id = "probe_country_agreement",
+                category = Category.GEOIP,
+                label = "Probe country agreement",
+                value = countries.joinToString(),
+                severity = Severity.SOFT,
+                explanation = "Probes returned same IP but different country (GeoIP DB lag).",
+            )
+        }
+
         return out
     }
 

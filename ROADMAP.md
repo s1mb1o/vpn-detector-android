@@ -9,7 +9,7 @@
 - [x] Installed VPN app detection, root/mock/dev indicators
 - [x] Verdict scoring system (HARD/SOFT/INFO/PASS severity model)
 - [x] GeoIP probes (6 providers: ipify, ipinfo, ip-api, ifconfig.co, myip.com, Cloudflare)
-- [ ] GeoIP analysis (ASN classification, datacenter detection, probe agreement)
+- [x] GeoIP analysis (ASN classification, datacenter detection, reputation flags, probe agreement)
 - [ ] Consistency checks (SIM vs IP, locale vs IP, timezone vs IP)
 - [ ] Tabbed UI per detection category
 - [ ] Active probes (latency measurement, IPv6, captive portal)
