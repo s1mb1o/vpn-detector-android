@@ -10,7 +10,7 @@
 - [x] Verdict scoring system (HARD/SOFT/INFO/PASS severity model)
 - [x] GeoIP probes (6 providers: ipify, ipinfo, ip-api, ifconfig.co, myip.com, Cloudflare)
 - [x] GeoIP analysis (ASN classification, datacenter detection, reputation flags, probe agreement)
-- [ ] Consistency checks (SIM vs IP, locale vs IP, timezone vs IP)
+- [x] Consistency checks (SIM vs IP, network vs IP, MCC vs IP, carrier vs ASN, locale, timezone)
 - [ ] Tabbed UI per detection category
 - [ ] Active probes (latency measurement, IPv6, captive portal)
 - [ ] Detection engine orchestration (parallel execution)

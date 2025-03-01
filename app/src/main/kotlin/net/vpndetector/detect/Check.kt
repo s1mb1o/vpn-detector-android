@@ -10,7 +10,7 @@ package net.vpndetector.detect
  */
 enum class Severity { HARD, SOFT, INFO, PASS }
 
-enum class Category { SYSTEM, GEOIP }
+enum class Category { SYSTEM, GEOIP, CONSISTENCY }
 
 /** A single per-source row inside a Check's details, e.g. "ip-api → hosting=true". */
 data class DetailEntry(
