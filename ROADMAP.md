@@ -11,7 +11,7 @@
 - [x] GeoIP probes (6 providers: ipify, ipinfo, ip-api, ifconfig.co, myip.com, Cloudflare)
 - [x] GeoIP analysis (ASN classification, datacenter detection, reputation flags, probe agreement)
 - [x] Consistency checks (SIM vs IP, network vs IP, MCC vs IP, carrier vs ASN, locale, timezone)
-- [ ] Tabbed UI per detection category
+- [x] Tabbed UI per detection category (System, GeoIP, Consistency, Probes)
 - [ ] Active probes (latency measurement, IPv6, captive portal)
 - [ ] Detection engine orchestration (parallel execution)
 - [ ] Run history persistence and sharing
