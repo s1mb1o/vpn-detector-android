@@ -17,6 +17,7 @@ Currently implemented:
 - **System** — `TRANSPORT_VPN`, `NOT_VPN` capability, tunnel interfaces, active interface, default route, HTTP proxy, Private DNS, DNS servers, MTU, installed VPN apps, mock location, developer options, root indicators
 - **GeoIP** — six parallel probes (ipify, ipinfo, ip-api, ifconfig.co, myip.com, Cloudflare cdn-cgi/trace); datacenter ASN classification; reputation flags; probe IP/country agreement
 - **Consistency** — cross-checks SIM country / network country / MCC / carrier name / locale / timezone against the external IP
+- **Active probes** — global latency measurement, IPv6 reachability, local address enumeration, captive portal detection
 
 Each check reports a severity: HARD (single-handed detection), SOFT (contributes to score), INFO (diagnostic), PASS (clean). The verdict bar shows: score >= 100 → DETECTED, >= 30 → SUSPICIOUS, else CLEAN.
 

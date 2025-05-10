@@ -12,7 +12,7 @@
 - [x] GeoIP analysis (ASN classification, datacenter detection, reputation flags, probe agreement)
 - [x] Consistency checks (SIM vs IP, network vs IP, MCC vs IP, carrier vs ASN, locale, timezone)
 - [x] Tabbed UI per detection category (System, GeoIP, Consistency, Probes)
-- [ ] Active probes (latency measurement, IPv6, captive portal)
+- [x] Active probes (latency measurement, IPv6, captive portal, local addresses)
 - [ ] Detection engine orchestration (parallel execution)
 - [ ] Run history persistence and sharing
 - [ ] Advanced system checks (JVM proxy, VpnTransportInfo, routing anomalies)

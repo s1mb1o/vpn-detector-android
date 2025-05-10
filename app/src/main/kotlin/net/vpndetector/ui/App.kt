@@ -36,6 +36,7 @@ import net.vpndetector.detect.Verdict
 import net.vpndetector.detect.VerdictAggregator
 import net.vpndetector.detect.consistency.ConsistencyChecks
 import net.vpndetector.detect.geoip.GeoIpProbes
+import net.vpndetector.detect.probes.ActiveProbes
 import net.vpndetector.ui.tabs.CategoryTab
 import net.vpndetector.ui.verdict.VerdictBar
 
@@ -88,7 +89,8 @@ fun App(ctx: android.content.Context) {
                         val probes = withContext(Dispatchers.IO) { GeoIpProbes.runAll() }
                         val geoip = GeoIpProbes.derive(probes)
                         val consistency = ConsistencyChecks.run(ctx, probes)
-                        val all = system + geoip + consistency
+                        val active = ActiveProbes.run()
+                        val all = system + geoip + consistency + active
                         checks = all
                         verdict = VerdictAggregator.aggregate(all)
                         running = false
