@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Cable
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Router
@@ -16,27 +17,15 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import net.vpndetector.detect.Category
-import net.vpndetector.detect.Check
-import net.vpndetector.detect.SystemChecks
-import net.vpndetector.detect.Verdict
-import net.vpndetector.detect.VerdictAggregator
-import net.vpndetector.detect.consistency.ConsistencyChecks
-import net.vpndetector.detect.geoip.GeoIpProbes
-import net.vpndetector.detect.probes.ActiveProbes
 import net.vpndetector.ui.tabs.CategoryTab
 import net.vpndetector.ui.verdict.VerdictBar
 
@@ -50,13 +39,12 @@ private val TABS = listOf(
 )
 
 @Composable
-fun App(ctx: android.content.Context) {
+fun App(vm: AppViewModel = viewModel()) {
     val nav = rememberNavController()
     val backStack by nav.currentBackStackEntryAsState()
-    val scope = rememberCoroutineScope()
-    var checks by remember { mutableStateOf<List<Check>>(emptyList()) }
-    var verdict by remember { mutableStateOf<Verdict?>(null) }
-    var running by remember { mutableStateOf(false) }
+    val checks by vm.checks.collectAsStateWithLifecycle()
+    val verdict by vm.verdict.collectAsStateWithLifecycle()
+    val running by vm.running.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = { VerdictBar(verdict) },
@@ -81,22 +69,8 @@ fun App(ctx: android.content.Context) {
         },
         floatingActionButton = {
             ExtendedFloatingActionButton(
-                onClick = {
-                    if (running) return@ExtendedFloatingActionButton
-                    running = true
-                    scope.launch {
-                        val system = SystemChecks.run(ctx)
-                        val probes = withContext(Dispatchers.IO) { GeoIpProbes.runAll() }
-                        val geoip = GeoIpProbes.derive(probes)
-                        val consistency = ConsistencyChecks.run(ctx, probes)
-                        val active = ActiveProbes.run()
-                        val all = system + geoip + consistency + active
-                        checks = all
-                        verdict = VerdictAggregator.aggregate(all)
-                        running = false
-                    }
-                },
-                icon = { Icon(Icons.Filled.Refresh, null) },
+                onClick = { vm.runAll() },
+                icon = { Icon(if (running) Icons.Filled.Cable else Icons.Filled.Refresh, null) },
                 text = { Text(if (running) "Running…" else "Run all checks") },
             )
         },

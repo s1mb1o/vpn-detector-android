@@ -31,7 +31,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             MaterialTheme {
-                Surface { App(this) }
+                Surface { App() }
             }
         }
     }

@@ -13,7 +13,7 @@
 - [x] Consistency checks (SIM vs IP, network vs IP, MCC vs IP, carrier vs ASN, locale, timezone)
 - [x] Tabbed UI per detection category (System, GeoIP, Consistency, Probes)
 - [x] Active probes (latency measurement, IPv6, captive portal, local addresses)
-- [ ] Detection engine orchestration (parallel execution)
+- [x] Detection engine orchestration (parallel execution, ViewModel)
 - [ ] Run history persistence and sharing
 - [ ] Advanced system checks (JVM proxy, VpnTransportInfo, routing anomalies)
 - [ ] Local proxy listener detection
