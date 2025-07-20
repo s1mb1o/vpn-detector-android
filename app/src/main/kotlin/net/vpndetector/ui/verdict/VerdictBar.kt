@@ -8,6 +8,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -19,7 +23,7 @@ import net.vpndetector.detect.Verdict
 import net.vpndetector.detect.VerdictLevel
 
 @Composable
-fun VerdictBar(v: Verdict?) {
+fun VerdictBar(v: Verdict?, onShare: (() -> Unit)? = null) {
     val (color, label) = when (v?.level) {
         VerdictLevel.CLEAN -> Color(0xFF1B5E20) to "CLEAN"
         VerdictLevel.SUSPICIOUS -> Color(0xFFE65100) to "SUSPICIOUS"
@@ -43,6 +47,11 @@ fun VerdictBar(v: Verdict?) {
                 )
             } else {
                 Text("Tap \"Run all checks\" to start.", color = Color.White)
+            }
+        }
+        if (v != null && onShare != null) {
+            IconButton(onClick = onShare) {
+                Icon(Icons.Filled.Share, contentDescription = "Share results", tint = Color.White)
             }
         }
     }

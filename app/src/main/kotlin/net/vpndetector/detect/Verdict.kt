@@ -1,7 +1,11 @@
 package net.vpndetector.detect
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 enum class VerdictLevel { CLEAN, SUSPICIOUS, DETECTED }
 
+@Serializable
 data class Verdict(
     val level: VerdictLevel,
     val score: Int,

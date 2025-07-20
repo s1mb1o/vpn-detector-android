@@ -14,7 +14,7 @@
 - [x] Tabbed UI per detection category (System, GeoIP, Consistency, Probes)
 - [x] Active probes (latency measurement, IPv6, captive portal, local addresses)
 - [x] Detection engine orchestration (parallel execution, ViewModel)
-- [ ] Run history persistence and sharing
+- [x] Run history persistence (DataStore, up to 50 entries) and sharing
 - [ ] Advanced system checks (JVM proxy, VpnTransportInfo, routing anomalies)
 - [ ] Local proxy listener detection
 - [ ] Router egress traceroute

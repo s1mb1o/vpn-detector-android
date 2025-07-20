@@ -5,11 +5,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Cable
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Router
 import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material.icons.filled.SwapHoriz
+import android.content.Intent
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -20,12 +22,14 @@ import androidx.compose.runtime.Composable
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import net.vpndetector.detect.Category
+import net.vpndetector.ui.history.HistoryScreen
 import net.vpndetector.ui.tabs.CategoryTab
 import net.vpndetector.ui.verdict.VerdictBar
 
@@ -36,18 +40,33 @@ private val TABS = listOf(
     Tab("geoip", "GeoIP", Icons.Filled.Public),
     Tab("consistency", "Consistency", Icons.Filled.SwapHoriz),
     Tab("probes", "Probes", Icons.Filled.Sensors),
+    Tab("history", "History", Icons.Filled.History),
 )
 
 @Composable
 fun App(vm: AppViewModel = viewModel()) {
     val nav = rememberNavController()
     val backStack by nav.currentBackStackEntryAsState()
-    val checks by vm.checks.collectAsStateWithLifecycle()
-    val verdict by vm.verdict.collectAsStateWithLifecycle()
+    val current by vm.current.collectAsStateWithLifecycle()
     val running by vm.running.collectAsStateWithLifecycle()
+    val ctx = LocalContext.current
 
     Scaffold(
-        topBar = { VerdictBar(verdict) },
+        topBar = {
+            VerdictBar(
+                v = current?.verdict,
+                onShare = current?.let { run ->
+                    {
+                        val send = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_SUBJECT, "vpn-detector run · ${run.verdict.level}")
+                            putExtra(Intent.EXTRA_TEXT, run.toShareText())
+                        }
+                        ctx.startActivity(Intent.createChooser(send, "Share results"))
+                    }
+                },
+            )
+        },
         bottomBar = {
             NavigationBar {
                 TABS.forEach { tab ->
@@ -77,10 +96,11 @@ fun App(vm: AppViewModel = viewModel()) {
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
             NavHost(navController = nav, startDestination = "system") {
-                composable("system") { CategoryTab(checks, Category.SYSTEM) }
-                composable("geoip") { CategoryTab(checks, Category.GEOIP) }
-                composable("consistency") { CategoryTab(checks, Category.CONSISTENCY) }
-                composable("probes") { CategoryTab(checks, Category.PROBES) }
+                composable("system") { CategoryTab(current?.checks.orEmpty(), Category.SYSTEM) }
+                composable("geoip") { CategoryTab(current?.checks.orEmpty(), Category.GEOIP) }
+                composable("consistency") { CategoryTab(current?.checks.orEmpty(), Category.CONSISTENCY) }
+                composable("probes") { CategoryTab(current?.checks.orEmpty(), Category.PROBES) }
+                composable("history") { HistoryScreen(vm) }
             }
         }
     }

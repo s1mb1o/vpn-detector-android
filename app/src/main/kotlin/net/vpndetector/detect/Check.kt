@@ -1,5 +1,7 @@
 package net.vpndetector.detect
 
+import kotlinx.serialization.Serializable
+
 /**
  * Severity classification used to weight a single signal in the verdict.
  *
@@ -8,17 +10,21 @@ package net.vpndetector.detect
  * - INFO : neutral diagnostic information; never affects the verdict.
  * - PASS : observed value is consistent with a clean device profile.
  */
+@Serializable
 enum class Severity { HARD, SOFT, INFO, PASS }
 
+@Serializable
 enum class Category { SYSTEM, GEOIP, CONSISTENCY, PROBES }
 
 /** A single per-source row inside a Check's details, e.g. "ip-api → hosting=true". */
+@Serializable
 data class DetailEntry(
     val source: String,
     val reported: String,
     val verdict: Severity = Severity.INFO,
 )
 
+@Serializable
 data class Check(
     val id: String,
     val category: Category,
