@@ -15,7 +15,8 @@
 - [x] Active probes (latency measurement, IPv6, captive portal, local addresses)
 - [x] Detection engine orchestration (parallel execution, ViewModel)
 - [x] Run history persistence (DataStore, up to 50 entries) and sharing
-- [ ] Advanced system checks (JVM proxy, VpnTransportInfo, routing anomalies)
+- [x] Advanced system checks (JVM proxy, VpnTransportInfo, routing anomalies, dumpsys, always-on VPN)
+- [x] CIS regional profile (carrier matching, language check, regional apps, Telegram, obfuscation toolchain)
 - [ ] Local proxy listener detection
 - [ ] Router egress traceroute
 - [ ] Transparent proxy header detection, country history tracking

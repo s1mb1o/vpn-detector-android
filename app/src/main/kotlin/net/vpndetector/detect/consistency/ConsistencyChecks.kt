@@ -16,6 +16,15 @@ import java.util.TimeZone
  */
 object ConsistencyChecks {
 
+    /** CIS mobile carriers — used for carrier-vs-ASN cross-check. */
+    private val CIS_CARRIERS = listOf(
+        "mts", "beeline", "vimpel", "megafon", "tele2",
+        "yota", "rostelecom", "motiv", "tinkoff mobile",
+    )
+
+    /** CIS country codes — Russian-language device outside CIS with foreign IP is suspicious. */
+    private val CIS_COUNTRIES = setOf("RU", "BY", "KZ", "KG", "UA", "AM", "AZ", "TJ", "UZ", "MD", "TM")
+
     fun run(ctx: Context, probes: List<ProbeResult>): List<Check> {
         val out = mutableListOf<Check>()
         val ok = probes.filter { it.error == null }
@@ -54,23 +63,22 @@ object ConsistencyChecks {
             )
         }
 
-        // 3. Carrier name vs ASN org
+        // 3. Carrier name vs ASN org (CIS-aware)
         run {
             val carrier = tm?.networkOperatorName.orEmpty()
-            val carrierLower = carrier.lowercase()
-            val orgLower = ipOrg?.lowercase().orEmpty()
-            // Simple heuristic: if carrier and org share no common words, they're likely different
-            val carrierWords = carrierLower.split(" ", "-", "_").filter { it.length > 2 }
-            val orgContainsCarrier = carrierWords.any { orgLower.contains(it) }
-            val mismatch = carrier.isNotEmpty() && ipOrg != null && ipCountry != null &&
-                !orgContainsCarrier && carrierLower != orgLower
+            val isCisCarrier = CIS_CARRIERS.any { carrier.contains(it, ignoreCase = true) }
+            val orgIsCis = ipOrg?.let { o ->
+                CIS_CARRIERS.any { o.contains(it, ignoreCase = true) } ||
+                    o.contains("rostelecom", true) || o.contains("er-telecom", true)
+            } ?: false
+            val mismatch = carrier.isNotEmpty() && isCisCarrier && !orgIsCis && ipCountry != null && ipCountry !in CIS_COUNTRIES
             out += Check(
                 id = "carrier_vs_asn",
                 category = Category.CONSISTENCY,
                 label = "Carrier vs ASN organisation",
                 value = "carrier=${carrier.ifEmpty { "?" }} asn=${ipOrg ?: "?"}",
-                severity = if (mismatch) Severity.SOFT else Severity.PASS,
-                explanation = "Mobile operator name vs exit ASN. Different organisations suggest VPN routing.",
+                severity = if (mismatch) Severity.HARD else Severity.PASS,
+                explanation = "CIS mobile operator on SIM but exit ASN is a foreign organisation.",
             )
         }
 
@@ -106,7 +114,21 @@ object ConsistencyChecks {
             )
         }
 
-        // 6. Timezone id vs IP timezone
+        // 6. Language vs IP country (CIS-aware)
+        run {
+            val lang = Locale.getDefault().language.lowercase()
+            val mismatch = lang == "ru" && ipCountry != null && ipCountry !in CIS_COUNTRIES
+            out += Check(
+                id = "lang_vs_ip",
+                category = Category.CONSISTENCY,
+                label = "Language vs IP country",
+                value = "lang=$lang IP=${ipCountry ?: "?"}",
+                severity = if (mismatch) Severity.SOFT else Severity.PASS,
+                explanation = "Russian-language system but IP outside CIS countries.",
+            )
+        }
+
+        // 7. Timezone id vs IP timezone
         run {
             val tz = TimeZone.getDefault().id
             val mismatch = ipTz != null && tz != ipTz
@@ -134,6 +156,27 @@ object ConsistencyChecks {
                 value = "${if (deviceOff >= 0) "+" else ""}$deviceOff",
                 severity = Severity.INFO,
                 explanation = "Diagnostic. Cross-check with ipinfo timezone in tz_vs_ip.",
+            )
+        }
+
+        // 9. CIS regional apps installed (fingerprint: many CIS apps + non-CIS IP)
+        run {
+            val markers = listOf(
+                "ru.sberbank", "ru.sberbankmobile", "ru.yandex.searchplugin", "ru.yandex.mail",
+                "ru.tinkoff.sirius", "com.idamob.tinkoff.android", "com.vkontakte.android",
+                "ru.mail.cloud", "ru.alfabank.mobile.android",
+            )
+            val pm = ctx.packageManager
+            val found = markers.filter { runCatching { pm.getPackageInfo(it, 0); true }.getOrDefault(false) }
+            val many = found.size >= 3
+            val mismatch = many && ipCountry != null && ipCountry !in CIS_COUNTRIES
+            out += Check(
+                id = "cis_apps",
+                category = Category.CONSISTENCY,
+                label = "CIS regional apps installed",
+                value = if (found.isEmpty()) "none" else "${found.size}: ${found.take(3).joinToString()}",
+                severity = if (mismatch) Severity.SOFT else Severity.INFO,
+                explanation = "Strong fingerprint: many CIS banking/social apps + non-CIS IP suggests VPN usage.",
             )
         }
 

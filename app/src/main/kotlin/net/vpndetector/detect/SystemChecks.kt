@@ -1,12 +1,15 @@
 package net.vpndetector.detect
 
 import android.Manifest
+import android.app.AppOpsManager
+import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.pm.PackageManager
 import android.net.ConnectivityManager
 import android.net.LinkProperties
 import android.net.NetworkCapabilities
 import android.os.Build
+import android.os.Process
 import android.provider.Settings
 import androidx.core.content.ContextCompat
 import java.net.NetworkInterface
@@ -34,17 +37,50 @@ object SystemChecks {
         "com.sshtunnel.ssht",
     )
 
+    /**
+     * Obfuscation-focused VPN tools — designed specifically to evade VPN detection.
+     * Unlike generic VPN clients, these have no typical "VPN for work" use case.
+     * Presence is a strong indicator of intent to bypass VPN detection systems.
+     */
+    private val ANTI_DETECTION_PACKAGES = listOf(
+        "org.amnezia.vpn",                          // AmneziaWG (DPI-resistant WG fork)
+        "com.v2ray.ang",                            // v2rayNG
+        "com.xray.ang",
+        "io.nekohasekai.sagernet",                  // SagerNet
+        "moe.matsuri.lite",                         // Matsuri
+        "io.nekohasekai.sfa",                       // sing-box for Android
+        "com.github.kr328.clash",                   // Clash for Android
+        "com.github.metacubex.clash.meta",          // Clash Meta / Mihomo
+        "com.github.shadowsocks",                   // shadowsocks-android
+        "com.github.shadowsocksrr.android",         // ShadowsocksR
+        "free.shadowsocks.proxy",
+        "org.outline.android.client",               // Outline (Shadowsocks-based)
+        "org.outline.go",
+        "io.github.romanvht.byedpi",                // ByeDPI
+        "ru.gildor.coroutines.byedpi",
+        "io.github.dovecoteescapee.byedpi",
+        "moe.nb4a",                                 // NekoBox
+        "com.nekohasekai.nekoray",
+    )
+
     private val KNOWN_PUBLIC_DNS = mapOf(
-        "1.1.1.1" to "Cloudflare",
-        "1.0.0.1" to "Cloudflare",
-        "8.8.8.8" to "Google",
-        "8.8.4.4" to "Google",
-        "9.9.9.9" to "Quad9",
-        "149.112.112.112" to "Quad9",
-        "94.140.14.14" to "AdGuard",
-        "94.140.15.15" to "AdGuard",
-        "208.67.222.222" to "OpenDNS",
-        "208.67.220.220" to "OpenDNS",
+        "1.1.1.1" to "Cloudflare", "1.0.0.1" to "Cloudflare",
+        "8.8.8.8" to "Google", "8.8.4.4" to "Google",
+        "9.9.9.9" to "Quad9", "149.112.112.112" to "Quad9",
+        "94.140.14.14" to "AdGuard", "94.140.15.15" to "AdGuard",
+        "208.67.222.222" to "OpenDNS", "208.67.220.220" to "OpenDNS",
+    )
+
+    /** Messaging apps commonly restricted in CIS region. Weak signal. */
+    private val TELEGRAM_PACKAGES = listOf(
+        "org.telegram.messenger",
+        "org.telegram.messenger.web",
+        "org.telegram.messenger.beta",
+        "org.thunderdog.challegram",
+        "nekox.messenger",
+        "tw.nekomimi.nekogram",
+        "ua.itaysonlab.messenger",
+        "xyz.nextalone.nagram",
     )
 
     private val KNOWN_DOT_HOSTS = setOf(
@@ -65,75 +101,46 @@ object SystemChecks {
         run {
             val isVpn = caps?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true
             out += Check(
-                id = "transport_vpn",
-                category = Category.SYSTEM,
-                label = "TRANSPORT_VPN flag",
-                value = isVpn.toString(),
+                id = "transport_vpn", category = Category.SYSTEM,
+                label = "TRANSPORT_VPN flag", value = isVpn.toString(),
                 severity = if (isVpn) Severity.HARD else Severity.PASS,
-                explanation = "ConnectivityManager.hasTransport(TRANSPORT_VPN). " +
-                    "If true, a local VPN client is active. The most common anti-fraud signal.",
+                explanation = "ConnectivityManager.hasTransport(TRANSPORT_VPN). The most common anti-fraud signal.",
             )
         }
 
         // 2. NET_CAPABILITY_NOT_VPN
         run {
             if (caps == null) {
-                out += Check(
-                    id = "cap_not_vpn",
-                    category = Category.SYSTEM,
-                    label = "NET_CAPABILITY_NOT_VPN",
-                    value = "n/a (no active network)",
-                    severity = Severity.INFO,
-                    explanation = "Cannot evaluate while offline / between network handoffs.",
-                )
+                out += Check(id = "cap_not_vpn", category = Category.SYSTEM,
+                    label = "NET_CAPABILITY_NOT_VPN", value = "n/a (no active network)",
+                    severity = Severity.INFO, explanation = "Cannot evaluate while offline.")
             } else {
                 val notVpn = caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
-                out += Check(
-                    id = "cap_not_vpn",
-                    category = Category.SYSTEM,
-                    label = "NET_CAPABILITY_NOT_VPN",
-                    value = notVpn.toString(),
+                out += Check(id = "cap_not_vpn", category = Category.SYSTEM,
+                    label = "NET_CAPABILITY_NOT_VPN", value = notVpn.toString(),
                     severity = if (!notVpn) Severity.HARD else Severity.PASS,
-                    explanation = "Mirror of TRANSPORT_VPN. Anti-fraud SDKs check both to defeat naive bypasses.",
-                )
+                    explanation = "Mirror of TRANSPORT_VPN. SDKs check both to defeat naive bypasses.")
             }
         }
 
         // 3. Tunnel interfaces
         run {
-            val all = try {
-                NetworkInterface.getNetworkInterfaces().toList()
-            } catch (e: Exception) {
-                emptyList()
-            }
-            val flagged = all.filter { ifc ->
-                isTunnelIfaceName(ifc.name) &&
-                    runCatching { ifc.isUp }.getOrDefault(false)
-            }
-            out += Check(
-                id = "tun_iface",
-                category = Category.SYSTEM,
+            val all = try { NetworkInterface.getNetworkInterfaces().toList() } catch (e: Exception) { emptyList() }
+            val flagged = all.filter { ifc -> isTunnelIfaceName(ifc.name) && runCatching { ifc.isUp }.getOrDefault(false) }
+            out += Check(id = "tun_iface", category = Category.SYSTEM,
                 label = "Tunnel interfaces present",
                 value = if (flagged.isEmpty()) "none" else flagged.joinToString { it.name },
                 severity = if (flagged.isNotEmpty()) Severity.HARD else Severity.PASS,
-                explanation = "Any tun/tap/wg/utun/ppp/ipsec interface that is UP indicates a local VPN " +
-                    "or IPsec/IKEv2 tunnel client.",
-            )
+                explanation = "Any tun/tap/wg/utun/ppp/ipsec interface that is UP indicates a local VPN.")
         }
 
         // 4. Active interface name
         run {
             val name = link?.interfaceName ?: "?"
-            val bad = isTunnelIfaceName(name)
-            out += Check(
-                id = "active_iface_name",
-                category = Category.SYSTEM,
-                label = "Active interface name",
-                value = name,
-                severity = if (bad) Severity.HARD else Severity.PASS,
-                explanation = "Active network's interface name. wlan*/rmnet*/ccmni* are normal; " +
-                    "tun/wg/utun/ppp/ipsec indicate VPN.",
-            )
+            out += Check(id = "active_iface_name", category = Category.SYSTEM,
+                label = "Active interface name", value = name,
+                severity = if (isTunnelIfaceName(name)) Severity.HARD else Severity.PASS,
+                explanation = "wlan*/rmnet* are normal; tun/wg/utun/ppp/ipsec indicate VPN.")
         }
 
         // 5. Default route via tunnel
@@ -146,32 +153,21 @@ object SystemChecks {
             }
             val wgTrick = routes.any { it.destination.toString() == "0.0.0.0/1" } &&
                 routes.any { it.destination.toString() == "128.0.0.0/1" }
-            val sev = when {
-                defaultViaTun -> Severity.HARD
-                wgTrick -> Severity.HARD
-                else -> Severity.PASS
-            }
-            out += Check(
-                id = "default_route_tun",
-                category = Category.SYSTEM,
+            val sev = if (defaultViaTun || wgTrick) Severity.HARD else Severity.PASS
+            out += Check(id = "default_route_tun", category = Category.SYSTEM,
                 label = "Default route via tunnel",
                 value = if (defaultViaTun) "yes" else if (wgTrick) "WG split-route trick" else "no",
                 severity = sev,
-                explanation = "0.0.0.0/0 via tun OR the 0.0.0.0/1 + 128.0.0.0/1 trick (WireGuard signature).",
-            )
+                explanation = "0.0.0.0/0 via tun OR the 0.0.0.0/1 + 128.0.0.0/1 trick (WireGuard signature).")
         }
 
-        // 6. HTTP proxy on active link
+        // 6. HTTP proxy
         run {
             val proxy = link?.httpProxy
-            out += Check(
-                id = "http_proxy",
-                category = Category.SYSTEM,
-                label = "HTTP proxy on link",
-                value = proxy?.toString() ?: "none",
+            out += Check(id = "http_proxy", category = Category.SYSTEM,
+                label = "HTTP proxy on link", value = proxy?.toString() ?: "none",
                 severity = if (proxy != null) Severity.HARD else Severity.PASS,
-                explanation = "LinkProperties.httpProxy. Any value = system-wide HTTP proxy, treated as VPN by SDKs.",
-            )
+                explanation = "LinkProperties.httpProxy. Any value = system-wide HTTP proxy.")
         }
 
         // 7. Private DNS
@@ -179,45 +175,79 @@ object SystemChecks {
             val isActive = link?.isPrivateDnsActive == true
             val name = link?.privateDnsServerName
             val isKnownPublic = name != null && KNOWN_DOT_HOSTS.any { name.contains(it, ignoreCase = true) }
-            val sev = when {
-                isKnownPublic -> Severity.SOFT
-                isActive -> Severity.SOFT
-                else -> Severity.PASS
-            }
-            out += Check(
-                id = "private_dns",
-                category = Category.SYSTEM,
+            val sev = if (isKnownPublic || isActive) Severity.SOFT else Severity.PASS
+            out += Check(id = "private_dns", category = Category.SYSTEM,
                 label = "Private DNS (DoT)",
-                value = when {
-                    name != null -> "active: $name"
-                    isActive -> "active (auto)"
-                    else -> "off"
-                },
+                value = when { name != null -> "active: $name"; isActive -> "active (auto)"; else -> "off" },
                 severity = sev,
-                explanation = "Non-operator DoT (Cloudflare/Google/AdGuard) is an anti-fraud penalty signal.",
-            )
+                explanation = "Non-operator DoT is an anti-fraud penalty signal.")
         }
 
-        // 8. DNS servers list
+        // 8. DNS servers
         run {
             val dns = link?.dnsServers?.map { it.hostAddress ?: it.toString() } ?: emptyList()
             val publicHits = dns.mapNotNull { KNOWN_PUBLIC_DNS[it]?.let { p -> "$it ($p)" } }
-            out += Check(
-                id = "dns_servers",
-                category = Category.SYSTEM,
-                label = "DNS servers",
-                value = if (dns.isEmpty()) "none" else dns.joinToString(),
+            out += Check(id = "dns_servers", category = Category.SYSTEM,
+                label = "DNS servers", value = if (dns.isEmpty()) "none" else dns.joinToString(),
                 severity = if (publicHits.isNotEmpty()) Severity.SOFT else Severity.PASS,
-                explanation = "System DNS resolvers. Public providers (1.1.1.1, 8.8.8.8, AdGuard, Quad9) flag.",
-            )
+                explanation = "Public providers (1.1.1.1, 8.8.8.8, AdGuard, Quad9) flag.")
         }
 
-        // 9. MTU of active interface
+        // 9. Always-on VPN
+        run {
+            val onApp = runCatching { Settings.Secure.getString(ctx.contentResolver, "always_on_vpn_app") }.getOrNull()
+            val lockdown = runCatching { Settings.Secure.getInt(ctx.contentResolver, "always_on_vpn_lockdown", 0) }.getOrDefault(0)
+            val on = !onApp.isNullOrEmpty()
+            out += Check(id = "always_on_vpn", category = Category.SYSTEM,
+                label = "Always-on VPN",
+                value = if (on) "$onApp (lockdown=$lockdown)" else "off",
+                severity = if (on) Severity.SOFT else Severity.PASS,
+                explanation = "Settings.Secure always_on_vpn_app + always_on_vpn_lockdown.")
+        }
+
+        // 10. Installed generic VPN apps (SOFT)
+        run {
+            val pm = ctx.packageManager
+            val installed = KNOWN_VPN_PACKAGES.filter { pkg -> runCatching { pm.getPackageInfo(pkg, 0); true }.getOrDefault(false) }
+            out += Check(id = "installed_vpn_apps", category = Category.SYSTEM,
+                label = "Known VPN clients installed",
+                value = if (installed.isEmpty()) "none" else installed.joinToString(),
+                severity = if (installed.isNotEmpty()) Severity.SOFT else Severity.PASS,
+                explanation = "SOFT because these have legitimate work / privacy uses.")
+        }
+
+        // 10b. Anti-detection / obfuscation toolchain (HARD)
+        run {
+            val pm = ctx.packageManager
+            val installed = ANTI_DETECTION_PACKAGES.filter { pkg -> runCatching { pm.getPackageInfo(pkg, 0); true }.getOrDefault(false) }
+            val details = installed.map { pkg ->
+                val label = when {
+                    pkg == "org.amnezia.vpn" -> "AmneziaWG (DPI-resistant WG fork)"
+                    pkg.contains("v2ray") || pkg.contains("xray") -> "Xray / VLESS-Reality client"
+                    pkg.contains("sagernet") || pkg.contains("nekohasekai") || pkg.contains("matsuri") ||
+                        pkg.contains("nb4a") || pkg.contains("nekoray") -> "NekoBox / sing-box / SagerNet"
+                    pkg.contains("clash") || pkg.contains("mihomo") -> "Clash / Mihomo"
+                    pkg.contains("shadowsocks") -> "Shadowsocks(R)"
+                    pkg.contains("outline") -> "Outline (Shadowsocks-based)"
+                    pkg.contains("byedpi") -> "ByeDPI (DPI bypass)"
+                    else -> "obfuscation tool"
+                }
+                DetailEntry(source = pkg, reported = label, verdict = Severity.HARD)
+            }
+            out += Check(id = "anti_detection_apps", category = Category.SYSTEM,
+                label = "Obfuscation toolchain installed",
+                value = if (installed.isEmpty()) "none" else "${installed.size}: ${installed.joinToString()}",
+                severity = if (installed.isNotEmpty()) Severity.HARD else Severity.PASS,
+                explanation = "Packages designed to evade VPN detection: AmneziaWG, Xray/VLESS-Reality, " +
+                    "NekoBox/sing-box, Clash/Mihomo, Shadowsocks(R), Outline, ByeDPI. " +
+                    "Unlike generic VPN clients these imply intent to bypass detection systems.",
+                details = details)
+        }
+
+        // 11. MTU
         run {
             val name = link?.interfaceName
-            val mtu = name?.let {
-                runCatching { NetworkInterface.getByName(it)?.mtu }.getOrNull()
-            }
+            val mtu = name?.let { runCatching { NetworkInterface.getByName(it)?.mtu }.getOrNull() }
             val lowered = name?.lowercase()
             val sev = when {
                 mtu == null || lowered == null -> Severity.INFO
@@ -225,17 +255,46 @@ object SystemChecks {
                 mtu < 1500 && (lowered.startsWith("wlan") || lowered.startsWith("eth")) -> Severity.SOFT
                 else -> Severity.PASS
             }
-            out += Check(
-                id = "mtu",
-                category = Category.SYSTEM,
-                label = "Active iface MTU",
-                value = mtu?.toString() ?: "n/a",
+            out += Check(id = "mtu", category = Category.SYSTEM,
+                label = "Active iface MTU", value = mtu?.toString() ?: "n/a",
                 severity = sev,
-                explanation = "Typical WG=1420, AmneziaWG≈1380, raw v4 MTU 1280. Non-1500 on Wi-Fi is suspicious.",
-            )
+                explanation = "Typical WG=1420, AmneziaWG≈1380, raw v4 MTU 1280. Non-1500 on Wi-Fi is suspicious.")
         }
 
-        // 10. Active transport type (context)
+        // 12. Mock location
+        run {
+            val mock = runCatching { @Suppress("DEPRECATION") Settings.Secure.getString(ctx.contentResolver, Settings.Secure.ALLOW_MOCK_LOCATION) }.getOrNull()
+            val on = mock != null && mock != "0"
+            out += Check(id = "mock_location", category = Category.SYSTEM,
+                label = "Mock location", value = mock ?: "n/a",
+                severity = if (on) Severity.SOFT else Severity.PASS,
+                explanation = "Anti-fraud SDKs penalize mock-location-capable devices.")
+        }
+
+        // 13. Developer options / ADB
+        run {
+            val dev = runCatching { Settings.Global.getInt(ctx.contentResolver, Settings.Global.DEVELOPMENT_SETTINGS_ENABLED, 0) }.getOrDefault(0)
+            val adb = runCatching { Settings.Global.getInt(ctx.contentResolver, Settings.Global.ADB_ENABLED, 0) }.getOrDefault(0)
+            out += Check(id = "dev_options", category = Category.SYSTEM,
+                label = "Developer options / ADB", value = "dev=$dev adb=$adb",
+                severity = Severity.INFO,
+                explanation = "Diagnostic context. Often co-occurs with VPN setups.")
+        }
+
+        // 14. Root indicators
+        run {
+            val suExists = listOf("/system/bin/su", "/system/xbin/su", "/sbin/su", "/su/bin/su", "/system/app/Superuser.apk", "/data/adb/magisk")
+                .any { java.io.File(it).exists() }
+            val magiskPkg = runCatching { ctx.packageManager.getPackageInfo("com.topjohnwu.magisk", 0); true }.getOrDefault(false)
+            val rooted = suExists || magiskPkg
+            out += Check(id = "root", category = Category.SYSTEM,
+                label = "Root indicators",
+                value = if (rooted) "rooted (su=$suExists magisk=$magiskPkg)" else "stock",
+                severity = if (rooted) Severity.SOFT else Severity.PASS,
+                explanation = "Heuristic: su binary or Magisk presence.")
+        }
+
+        // 15. Active transport
         run {
             val transport = when {
                 caps == null -> "none"
@@ -244,117 +303,141 @@ object SystemChecks {
                 caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> "ETHERNET"
                 else -> "OTHER"
             }
-            out += Check(
-                id = "active_transport",
-                category = Category.SYSTEM,
-                label = "Active transport",
-                value = transport,
-                severity = Severity.INFO,
-                explanation = "Used by other checks to interpret consistency signals.",
-            )
+            out += Check(id = "active_transport", category = Category.SYSTEM,
+                label = "Active transport", value = transport,
+                severity = Severity.INFO, explanation = "Used by other checks to interpret consistency signals.")
         }
 
-        // 11. Installed VPN apps (SOFT — could be corp VPN, paid commercial)
+        // 16. Wi-Fi SSID
+        run {
+            val hasFine = ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+            val wifi = ctx.applicationContext.getSystemService(Context.WIFI_SERVICE) as? android.net.wifi.WifiManager
+            @Suppress("DEPRECATION") val info = wifi?.connectionInfo
+            val ssid = if (hasFine) info?.ssid else null
+            out += Check(id = "wifi_ssid", category = Category.SYSTEM,
+                label = "Wi-Fi SSID", value = ssid ?: "n/a (no permission or not on Wi-Fi)",
+                severity = Severity.INFO, explanation = "Diagnostic — useful to tag runs by location.")
+        }
+
+        // 17. JVM-level proxy properties
+        run {
+            val keys = listOf("http.proxyHost", "http.proxyPort", "https.proxyHost", "https.proxyPort", "socksProxyHost", "socksProxyPort")
+            val pairs = keys.mapNotNull { k -> runCatching { System.getProperty(k) }.getOrNull()?.takeIf { it.isNotBlank() }?.let { k to it } }
+            val anyHost = pairs.any { it.first.endsWith("Host") }
+            out += Check(id = "jvm_proxy", category = Category.SYSTEM,
+                label = "JVM proxy properties",
+                value = if (pairs.isEmpty()) "none" else pairs.joinToString { "${it.first}=${it.second}" },
+                severity = if (anyHost) Severity.HARD else Severity.PASS,
+                explanation = "System.getProperty(http.proxyHost / socksProxyHost). Per-process proxy hosts.")
+        }
+
+        // 18. VpnTransportInfo (API 31+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val info = caps?.transportInfo
+            val isVpnInfo = info != null && info.javaClass.simpleName == "VpnTransportInfo"
+            out += Check(id = "vpn_transport_info", category = Category.SYSTEM,
+                label = "VpnTransportInfo",
+                value = if (isVpnInfo) info.toString().take(200) else "(none)",
+                severity = if (isVpnInfo) Severity.HARD else Severity.PASS,
+                explanation = "NetworkCapabilities.transportInfo on API 31+. Exposes VPN session id and type.")
+        }
+
+        // 19. Routing table anomalies
+        run {
+            val routes = link?.routes.orEmpty()
+            val defaults = routes.filter { it.isDefaultRoute }
+            val viaTunnel = routes.filter { r -> val ifc = r.`interface` ?: link?.interfaceName ?: ""; isTunnelIfaceName(ifc) }
+            val details = listOf(
+                DetailEntry("default routes", defaults.size.toString(), if (defaults.size > 1) Severity.SOFT else Severity.PASS),
+                DetailEntry("routes via tunnel iface", viaTunnel.size.toString(), if (viaTunnel.isNotEmpty()) Severity.SOFT else Severity.PASS),
+                DetailEntry("total routes", routes.size.toString(), Severity.INFO),
+            )
+            val sev = if (defaults.size > 1 || viaTunnel.isNotEmpty()) Severity.SOFT else Severity.PASS
+            out += Check(id = "route_anomalies", category = Category.SYSTEM,
+                label = "Routing table anomalies",
+                value = "${defaults.size} default · ${viaTunnel.size} via-tunnel · ${routes.size} total",
+                severity = sev,
+                explanation = "Multiple default routes or routes via tunnel interfaces indicate split-tunnel setups.",
+                details = details)
+        }
+
+        // 20. dumpsys vpn_management (best-effort)
+        run {
+            val (output, ok) = runDumpsys()
+            val pkgRegex = Regex("""(?:Active package name|Active vpn package):\s*(\S+)""")
+            val pkgs = pkgRegex.findAll(output).map { it.groupValues[1] }.toList().distinct()
+            val sev = when { !ok -> Severity.INFO; pkgs.isNotEmpty() -> Severity.HARD; else -> Severity.PASS }
+            out += Check(id = "dumpsys_vpn", category = Category.SYSTEM,
+                label = "dumpsys vpn_management",
+                value = when { !ok -> "denied (expected on production builds)"; pkgs.isEmpty() -> "no active VPN"; else -> pkgs.joinToString() },
+                severity = sev,
+                explanation = "Runtime.exec(dumpsys vpn_management). Lists active VPN packages on Android 12+.")
+        }
+
+        // 21. Telegram presence (CIS regional signal — messaging apps commonly restricted in CIS)
         run {
             val pm = ctx.packageManager
-            val installed = KNOWN_VPN_PACKAGES.filter { pkg ->
-                runCatching {
-                    pm.getPackageInfo(pkg, 0); true
-                }.getOrDefault(false)
+            val installed = TELEGRAM_PACKAGES.mapNotNull { pkg -> runCatching { val pi = pm.getPackageInfo(pkg, 0); pkg to pi }.getOrNull() }
+            val hasUsageAccess = hasUsageStatsPermission(ctx)
+            val running = if (hasUsageAccess) runCatching { runningTelegramPids(ctx) }.getOrDefault(emptyList()) else emptyList()
+            val details = TELEGRAM_PACKAGES.map { pkg ->
+                val pi = installed.firstOrNull { it.first == pkg }?.second
+                val isRunning = pi != null && running.contains(pkg)
+                val (reported, sev) = when {
+                    pi == null -> "not installed" to Severity.PASS
+                    isRunning -> "installed · running now" to Severity.SOFT
+                    hasUsageAccess -> "installed · not in foreground" to Severity.SOFT
+                    else -> "installed (running state unknown)" to Severity.SOFT
+                }
+                DetailEntry(source = pkg, reported = reported, verdict = sev)
             }
-            out += Check(
-                id = "installed_vpn_apps",
-                category = Category.SYSTEM,
-                label = "Known VPN clients installed",
-                value = if (installed.isEmpty()) "none" else installed.joinToString(),
-                severity = if (installed.isNotEmpty()) Severity.SOFT else Severity.PASS,
-                explanation = "PackageManager scan for known VPN client package names. " +
-                    "SOFT because these have legitimate work / privacy uses.",
-            )
-        }
-
-        // 12. Mock location enabled (best effort)
-        run {
-            val mock = runCatching {
-                @Suppress("DEPRECATION")
-                Settings.Secure.getString(ctx.contentResolver, Settings.Secure.ALLOW_MOCK_LOCATION)
-            }.getOrNull()
-            val on = mock != null && mock != "0"
-            out += Check(
-                id = "mock_location",
-                category = Category.SYSTEM,
-                label = "Mock location",
-                value = mock ?: "n/a",
-                severity = if (on) Severity.SOFT else Severity.PASS,
-                explanation = "Anti-fraud SDKs penalize mock-location-capable devices.",
-            )
-        }
-
-        // 13. Developer options / ADB
-        run {
-            val dev = runCatching {
-                Settings.Global.getInt(ctx.contentResolver,
-                    Settings.Global.DEVELOPMENT_SETTINGS_ENABLED, 0)
-            }.getOrDefault(0)
-            val adb = runCatching {
-                Settings.Global.getInt(ctx.contentResolver, Settings.Global.ADB_ENABLED, 0)
-            }.getOrDefault(0)
-            out += Check(
-                id = "dev_options",
-                category = Category.SYSTEM,
-                label = "Developer options / ADB",
-                value = "dev=$dev adb=$adb",
-                severity = Severity.INFO,
-                explanation = "Diagnostic context. Often co-occurs with VPN setups but not a VPN signal itself.",
-            )
-        }
-
-        // 14. Root indicators (cheap heuristic)
-        run {
-            val suExists = listOf(
-                "/system/bin/su", "/system/xbin/su", "/sbin/su",
-                "/su/bin/su", "/system/app/Superuser.apk", "/data/adb/magisk",
-            ).any { java.io.File(it).exists() }
-            val magiskPkg = runCatching {
-                ctx.packageManager.getPackageInfo("com.topjohnwu.magisk", 0); true
-            }.getOrDefault(false)
-            val rooted = suExists || magiskPkg
-            out += Check(
-                id = "root",
-                category = Category.SYSTEM,
-                label = "Root indicators",
-                value = if (rooted) "rooted (su=$suExists magisk=$magiskPkg)" else "stock",
-                severity = if (rooted) Severity.SOFT else Severity.PASS,
-                explanation = "Heuristic: su binary or Magisk presence. Combined with VPN amplifies suspicion.",
-            )
-        }
-
-        // 15. Wi-Fi SSID (requires location permission on Android 10+)
-        run {
-            val hasFine = ContextCompat.checkSelfPermission(
-                ctx, Manifest.permission.ACCESS_FINE_LOCATION
-            ) == PackageManager.PERMISSION_GRANTED
-            val wifi = ctx.applicationContext.getSystemService(Context.WIFI_SERVICE) as? android.net.wifi.WifiManager
-            @Suppress("DEPRECATION")
-            val info = wifi?.connectionInfo
-            val ssid = if (hasFine) info?.ssid else null
-            out += Check(
-                id = "wifi_ssid",
-                category = Category.SYSTEM,
-                label = "Wi-Fi SSID",
-                value = ssid ?: "n/a (no permission or not on Wi-Fi)",
-                severity = Severity.INFO,
-                explanation = "Diagnostic — useful to tag runs by location.",
-            )
+            val installedCount = installed.size
+            out += Check(id = "telegram_present", category = Category.SYSTEM,
+                label = "Telegram presence",
+                value = when { installedCount == 0 -> "none"; running.isNotEmpty() -> "$installedCount installed, ${running.size} running"; else -> "$installedCount installed" },
+                severity = if (installedCount > 0) Severity.SOFT else Severity.PASS,
+                explanation = "CIS regional signal: Telegram is commonly restricted in several CIS countries. " +
+                    "A user who keeps Telegram installed is more likely to use bypass tools. " +
+                    "Running-state detection needs Usage Access permission.",
+                details = details)
         }
 
         return out
     }
 
-    /** Tunnel-interface name match used everywhere we look at iface names. */
     private fun isTunnelIfaceName(name: String): Boolean {
         val n = name.lowercase()
         return n.startsWith("tun") || n.startsWith("tap") || n.startsWith("wg") ||
             n.startsWith("utun") || n.startsWith("ppp") || n.startsWith("ipsec")
+    }
+
+    private fun runDumpsys(): Pair<String, Boolean> = try {
+        val pb = ProcessBuilder("/system/bin/dumpsys", "vpn_management").redirectErrorStream(true)
+        val p = pb.start()
+        val finished = p.waitFor(2, java.util.concurrent.TimeUnit.SECONDS)
+        if (!finished) { p.destroyForcibly(); "" to false }
+        else {
+            val out = p.inputStream.bufferedReader().use { it.readText() }
+            val ok = out.length > 50 && !out.contains("Permission Denial", ignoreCase = true)
+            out to ok
+        }
+    } catch (e: Exception) { "" to false }
+
+    private fun hasUsageStatsPermission(ctx: Context): Boolean {
+        val appOps = ctx.getSystemService(Context.APP_OPS_SERVICE) as? AppOpsManager ?: return false
+        val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            appOps.unsafeCheckOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS, Process.myUid(), ctx.packageName)
+        } else {
+            @Suppress("DEPRECATION") appOps.checkOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS, Process.myUid(), ctx.packageName)
+        }
+        return mode == AppOpsManager.MODE_ALLOWED
+    }
+
+    private fun runningTelegramPids(ctx: Context): List<String> {
+        val usm = ctx.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager ?: return emptyList()
+        val now = System.currentTimeMillis()
+        val stats = usm.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, now - 24 * 3600_000L, now) ?: return emptyList()
+        val recentMs = 5 * 60 * 1000L
+        return stats.filter { it.packageName in TELEGRAM_PACKAGES && now - it.lastTimeUsed < recentMs }.map { it.packageName }
     }
 }
