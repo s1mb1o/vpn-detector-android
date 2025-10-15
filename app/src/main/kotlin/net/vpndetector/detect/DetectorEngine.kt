@@ -9,6 +9,7 @@ import net.vpndetector.data.model.RunResult
 import net.vpndetector.detect.consistency.ConsistencyChecks
 import net.vpndetector.detect.geoip.GeoIpProbes
 import net.vpndetector.detect.probes.ActiveProbes
+import net.vpndetector.detect.probes.LocalListenerProbe
 
 object DetectorEngine {
 
@@ -17,14 +18,16 @@ object DetectorEngine {
             val systemDef = async { SystemChecks.run(ctx) }
             val probesDef = async { GeoIpProbes.runAll() }
             val activeDef = async { ActiveProbes.run() }
+            val listenerDef = async { LocalListenerProbe.run() }
 
             val system = systemDef.await()
             val probes = probesDef.await()
             val geoip = GeoIpProbes.derive(probes)
             val consistency = ConsistencyChecks.run(ctx, probes)
             val active = activeDef.await()
+            val listener = listenerDef.await()
 
-            val all = system + geoip + consistency + active
+            val all = system + geoip + consistency + active + listener
             RunResult(
                 timestamp = System.currentTimeMillis(),
                 tag = tag,

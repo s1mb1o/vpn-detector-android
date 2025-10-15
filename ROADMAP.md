@@ -17,7 +17,7 @@
 - [x] Run history persistence (DataStore, up to 50 entries) and sharing
 - [x] Advanced system checks (JVM proxy, VpnTransportInfo, routing anomalies, dumpsys, always-on VPN)
 - [x] CIS regional profile (carrier matching, language check, regional apps, Telegram, obfuscation toolchain)
-- [ ] Local proxy listener detection
+- [x] Local proxy listener detection (19 well-known ports)
 - [ ] Router egress traceroute
 - [ ] Transparent proxy header detection, country history tracking
 - [ ] Privacy policy, release configuration
