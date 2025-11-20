@@ -18,6 +18,6 @@
 - [x] Advanced system checks (JVM proxy, VpnTransportInfo, routing anomalies, dumpsys, always-on VPN)
 - [x] CIS regional profile (carrier matching, language check, regional apps, Telegram, obfuscation toolchain)
 - [x] Local proxy listener detection (19 well-known ports)
-- [ ] Router egress traceroute
+- [x] Router egress traceroute (TTL-based, GeoIP per-hop)
 - [ ] Transparent proxy header detection, country history tracking
 - [ ] Privacy policy, release configuration
