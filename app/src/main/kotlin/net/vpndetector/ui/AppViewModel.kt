@@ -33,7 +33,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             _running.value = true
             try {
-                val result = DetectorEngine.runAll(getApplication(), tag)
+                val previous = repo.snapshot().firstOrNull()
+                val result = DetectorEngine.runAll(getApplication(), tag, previous)
                 _current.value = result
                 repo.add(result)
                 logRun(result)
@@ -51,7 +52,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun logRun(r: RunResult) {
         Log.i(LOG_TAG, "===== run ts=${r.timestamp} verdict=${r.verdict.level} " +
-            "score=${r.verdict.score} hard=${r.verdict.hardCount} soft=${r.verdict.softCount} =====")
+            "score=${r.verdict.score} hard=${r.verdict.hardCount} soft=${r.verdict.softCount} " +
+            "matrix=${r.verdict.matrix}(geoip=${r.verdict.matrixGeoip} " +
+            "direct=${r.verdict.matrixDirect} indirect=${r.verdict.matrixIndirect}) =====")
         for (c in r.checks) {
             Log.i(LOG_TAG, "[${c.severity.short()}] ${c.category}/${c.id}: ${c.label} = ${c.value}")
             for (d in c.details) {

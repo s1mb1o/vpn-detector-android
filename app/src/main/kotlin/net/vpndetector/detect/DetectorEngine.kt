@@ -14,7 +14,11 @@ import net.vpndetector.detect.probes.Traceroute
 
 object DetectorEngine {
 
-    suspend fun runAll(ctx: Context, tag: String = ""): RunResult = withContext(Dispatchers.IO) {
+    suspend fun runAll(
+        ctx: Context,
+        tag: String = "",
+        previousRun: RunResult? = null,
+    ): RunResult = withContext(Dispatchers.IO) {
         coroutineScope {
             val systemDef = async { SystemChecks.run(ctx) }
             val probesDef = async { GeoIpProbes.runAll() }
@@ -29,8 +33,9 @@ object DetectorEngine {
             val active = activeDef.await()
             val traceroute = tracerouteDef.await()
             val listener = listenerDef.await()
+            val history = HistoryChecks.run(geoip, previousRun)
 
-            val all = system + geoip + consistency + active + traceroute + listener
+            val all = system + geoip + consistency + active + traceroute + listener + history
             RunResult(
                 timestamp = System.currentTimeMillis(),
                 tag = tag,

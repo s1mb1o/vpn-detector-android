@@ -19,5 +19,5 @@
 - [x] CIS regional profile (carrier matching, language check, regional apps, Telegram, obfuscation toolchain)
 - [x] Local proxy listener detection (19 well-known ports)
 - [x] Router egress traceroute (TTL-based, GeoIP per-hop)
-- [ ] Transparent proxy header detection, country history tracking
+- [x] Transparent proxy headers, country history, CDN whitelist, decision matrix verdict
 - [ ] Privacy policy, release configuration
