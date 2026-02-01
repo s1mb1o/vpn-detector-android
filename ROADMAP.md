@@ -20,4 +20,4 @@
 - [x] Local proxy listener detection (19 well-known ports)
 - [x] Router egress traceroute (TTL-based, GeoIP per-hop)
 - [x] Transparent proxy headers, country history, CDN whitelist, decision matrix verdict
-- [ ] Privacy policy, release configuration
+- [x] Privacy policy, release configuration, ProGuard rules

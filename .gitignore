@@ -16,4 +16,3 @@ local.properties
 # Release signing material — never commit
 keystore/
 keystore.properties
-
