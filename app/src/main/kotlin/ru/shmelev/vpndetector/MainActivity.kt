@@ -1,13 +1,14 @@
 package ru.shmelev.vpndetector
 
 import android.Manifest
-import android.os.Build
+import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.core.content.ContextCompat
 import ru.shmelev.vpndetector.ui.App
 
 class MainActivity : ComponentActivity() {
@@ -18,14 +19,17 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val perms = mutableListOf(
-            Manifest.permission.READ_PHONE_STATE,
-            Manifest.permission.ACCESS_FINE_LOCATION,
-        )
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            // No POST_NOTIFICATIONS used; nothing extra.
+        // Only ask once: skip if already granted, and skip on configuration-change recreations
+        // (savedInstanceState != null) so we don't re-prompt on rotation.
+        if (savedInstanceState == null) {
+            val needed = listOf(Manifest.permission.ACCESS_FINE_LOCATION)
+                .filter {
+                    ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
+                }
+            if (needed.isNotEmpty()) {
+                permissionLauncher.launch(needed.toTypedArray())
+            }
         }
-        permissionLauncher.launch(perms.toTypedArray())
 
         setContent {
             MaterialTheme {

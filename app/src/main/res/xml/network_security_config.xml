@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Default: HTTPS only. -->
+    <base-config cleartextTrafficPermitted="false" />
+
+    <!-- Allow cleartext to a small whitelist of probe hosts that are HTTP-only by design:
+         - ip-api.com: free tier is HTTP only (HTTPS requires paid key)
+         - connectivitycheck.gstatic.com: Android captive-portal probe; must be plain HTTP
+           so a captive portal can intercept it.
+    -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">ip-api.com</domain>
+        <domain includeSubdomains="true">connectivitycheck.gstatic.com</domain>
+    </domain-config>
+</network-security-config>

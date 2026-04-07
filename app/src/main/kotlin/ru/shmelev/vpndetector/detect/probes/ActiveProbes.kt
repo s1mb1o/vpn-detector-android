@@ -29,8 +29,8 @@ object ActiveProbes {
         val out = mutableListOf<Check>()
 
         val (ru, foreign) = coroutineScope {
-            val a = async { medianLatency(RU_ANCHORS) }
-            val b = async { medianLatency(FOREIGN_ANCHORS) }
+            val a = async { medianLatencyParallel(RU_ANCHORS) }
+            val b = async { medianLatencyParallel(FOREIGN_ANCHORS) }
             a.await() to b.await()
         }
 
@@ -127,18 +127,19 @@ object ActiveProbes {
         }
     }.getOrNull()
 
-    /** Median TTFB across [urls], in milliseconds. -1 on total failure. */
-    private fun medianLatency(urls: List<String>): Long {
-        val ts = urls.mapNotNull { url ->
-            runCatching {
-                val start = System.nanoTime()
-                Http.client.newCall(Request.Builder().url(url).head().build()).execute().use {
-                    if (!it.isSuccessful && it.code != 405) return@mapNotNull null
-                    (System.nanoTime() - start) / 1_000_000
-                }
-            }.getOrNull()
-        }.sorted()
-        if (ts.isEmpty()) return -1
-        return ts[ts.size / 2]
+    /** Median TTFB across [urls], in milliseconds. -1 on total failure. Probes run in parallel. */
+    private suspend fun medianLatencyParallel(urls: List<String>): Long = coroutineScope {
+        val ts = urls.map { url ->
+            async {
+                runCatching {
+                    val start = System.nanoTime()
+                    Http.client.newCall(Request.Builder().url(url).head().build()).execute().use {
+                        if (!it.isSuccessful && it.code != 405) return@runCatching null
+                        (System.nanoTime() - start) / 1_000_000
+                    }
+                }.getOrNull()
+            }
+        }.awaitAll().filterNotNull().sorted()
+        if (ts.isEmpty()) -1 else ts[ts.size / 2]
     }
 }

@@ -77,17 +77,28 @@ object SystemChecks {
             )
         }
 
-        // 2. NET_CAPABILITY_NOT_VPN
+        // 2. NET_CAPABILITY_NOT_VPN — only meaningful when there is an active network
         run {
-            val notVpn = caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN) == true
-            out += Check(
-                id = "cap_not_vpn",
-                category = Category.SYSTEM,
-                label = "NET_CAPABILITY_NOT_VPN",
-                value = notVpn.toString(),
-                severity = if (!notVpn) Severity.HARD else Severity.PASS,
-                explanation = "Mirror of TRANSPORT_VPN. SDKs check both to defeat naive bypasses.",
-            )
+            if (caps == null) {
+                out += Check(
+                    id = "cap_not_vpn",
+                    category = Category.SYSTEM,
+                    label = "NET_CAPABILITY_NOT_VPN",
+                    value = "n/a (no active network)",
+                    severity = Severity.INFO,
+                    explanation = "Cannot evaluate while offline / between network handoffs.",
+                )
+            } else {
+                val notVpn = caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
+                out += Check(
+                    id = "cap_not_vpn",
+                    category = Category.SYSTEM,
+                    label = "NET_CAPABILITY_NOT_VPN",
+                    value = notVpn.toString(),
+                    severity = if (!notVpn) Severity.HARD else Severity.PASS,
+                    explanation = "Mirror of TRANSPORT_VPN. SDKs check both to defeat naive bypasses.",
+                )
+            }
         }
 
         // 3. tun*/wg*/ppp*/utun*/tap* interfaces enumeration
@@ -264,10 +275,11 @@ object SystemChecks {
             val mtu = name?.let {
                 runCatching { NetworkInterface.getByName(it)?.mtu }.getOrNull()
             }
+            val lowered = name?.lowercase()
             val sev = when {
-                mtu == null -> Severity.INFO
+                mtu == null || lowered == null -> Severity.INFO
                 mtu in listOf(1280, 1380, 1420) -> Severity.SOFT
-                mtu < 1500 && (name.lowercase().startsWith("wlan") || name.lowercase().startsWith("eth")) -> Severity.SOFT
+                mtu < 1500 && (lowered.startsWith("wlan") || lowered.startsWith("eth")) -> Severity.SOFT
                 else -> Severity.PASS
             }
             out += Check(

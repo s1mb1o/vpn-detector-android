@@ -188,6 +188,7 @@ object GeoIpProbes {
         val timezone: String? = null,
     )
     private fun ipApi(): ProbeResult = try {
+        // ip-api free tier is HTTP-only; cleartext for this host is allowed via network_security_config.xml
         val body = fetch("http://ip-api.com/json/?fields=status,countryCode,regionName,city,isp,org,as,proxy,hosting,mobile,query,timezone")
             ?: return ProbeResult("ip-api", error = "no body")
         val r = AppJson.decodeFromString(IpApiResp.serializer(), body)

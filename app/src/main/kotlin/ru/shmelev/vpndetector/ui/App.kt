@@ -18,7 +18,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -45,8 +45,8 @@ private val TABS = listOf(
 fun App(vm: AppViewModel = viewModel()) {
     val nav = rememberNavController()
     val backStack by nav.currentBackStackEntryAsState()
-    val current by vm.current.collectAsState()
-    val running by vm.running.collectAsState()
+    val current by vm.current.collectAsStateWithLifecycle()
+    val running by vm.running.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = { VerdictBar(current?.verdict) },

@@ -1,10 +1,7 @@
 package ru.shmelev.vpndetector.detect.consistency
 
-import android.Manifest
 import android.content.Context
-import android.content.pm.PackageManager
 import android.telephony.TelephonyManager
-import androidx.core.content.ContextCompat
 import ru.shmelev.vpndetector.detect.Category
 import ru.shmelev.vpndetector.detect.Check
 import ru.shmelev.vpndetector.detect.Severity
@@ -29,10 +26,9 @@ object ConsistencyChecks {
         val ipOrg = ok.firstNotNullOfOrNull { it.org }
         val ipTz = ok.firstNotNullOfOrNull { it.timezone }
 
+        // simCountryIso / networkCountryIso / networkOperatorName / networkOperator do NOT
+        // require READ_PHONE_STATE on any modern Android — keep these checks ungated.
         val tm = ctx.getSystemService(Context.TELEPHONY_SERVICE) as? TelephonyManager
-        val hasPhone = ContextCompat.checkSelfPermission(
-            ctx, Manifest.permission.READ_PHONE_STATE
-        ) == PackageManager.PERMISSION_GRANTED
 
         // 1. SIM country vs IP country
         run {
@@ -157,19 +153,7 @@ object ConsistencyChecks {
             )
         }
 
-        // 9. Permission notice
-        if (!hasPhone) {
-            out += Check(
-                id = "no_phone_perm",
-                category = Category.CONSISTENCY,
-                label = "READ_PHONE_STATE permission",
-                value = "denied",
-                severity = Severity.INFO,
-                explanation = "Without this permission SIM/network country/MCC checks are degraded.",
-            )
-        }
-
-        // 10. Installed RU apps presence (signal strength: many RU apps + non-RU IP)
+        // 9. Installed RU apps presence (signal strength: many RU apps + non-RU IP)
         run {
             val markers = listOf(
                 "ru.sberbank", "ru.sberbankmobile", "ru.yandex.searchplugin", "ru.yandex.mail",

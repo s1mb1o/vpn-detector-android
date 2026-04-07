@@ -9,7 +9,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -20,7 +20,7 @@ import java.util.Locale
 
 @Composable
 fun HistoryScreen(vm: AppViewModel) {
-    val history by vm.history.collectAsState()
+    val history by vm.history.collectAsStateWithLifecycle()
     val fmt = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
 
     Column(Modifier.fillMaxSize().padding(8.dp)) {
