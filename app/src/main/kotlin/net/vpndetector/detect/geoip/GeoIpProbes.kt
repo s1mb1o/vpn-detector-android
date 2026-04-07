@@ -31,6 +31,8 @@ data class ProbeResult(
     val isVpn: Boolean? = null,
     val timezone: String? = null,
     val error: String? = null,
+    /** Forwarding-style headers observed on this probe's HTTP response. */
+    val proxyHeaders: Map<String, String> = emptyMap(),
 )
 
 private val DATACENTER_KEYWORDS = listOf(
@@ -40,6 +42,21 @@ private val DATACENTER_KEYWORDS = listOf(
     "contabo", "scaleway", "online sas", "psychz", "hosthatch",
     "vps", "host", "cloud",
 )
+
+/**
+ * CDN organisations whose IPs and ASNs legitimately appear in front of millions of legitimate
+ * customer apps. Methodology §4 explicitly calls out CDN whitelisting as a false-positive mitigation.
+ * If the org name matches both a datacenter keyword AND a CDN keyword we demote `asn_class` from
+ * HARD to INFO instead of flagging the user as on-VPN.
+ */
+private val CDN_KEYWORDS = listOf(
+    "cloudflare", "akamai", "fastly", "cloudfront", "google", "incapsula",
+    "stackpath", "bunnycdn", "keycdn", "azure cdn", "azure front door",
+)
+
+/** Forwarding-style HTTP headers that, when present in a probe response, indicate a transparent
+ *  proxy or middlebox is rewriting the request in flight. Methodology §10.2. */
+private val PROXY_HEADER_NAMES = listOf("via", "x-forwarded-for", "forwarded", "x-real-ip")
 
 object GeoIpProbes {
 
@@ -88,22 +105,31 @@ object GeoIpProbes {
             explanation = "What the world sees. PASS only on RU. Real verdict comes from Consistency tab.",
         )
 
-        // ASN class — short value, per-probe org breakdown in details
+        // ASN class — short value, per-probe org breakdown in details.
+        // CDN whitelist (methodology §4): if the org matches both a datacenter keyword
+        // AND a CDN keyword, demote the entire row from HARD to INFO. CDNs legitimately
+        // front millions of customer apps and would otherwise produce a flood of false
+        // positives.
         val asnDetails = results.map { p ->
             val org = p.org ?: p.asn
-            val match = if (org != null) {
+            val dcMatch = if (org != null) {
                 DATACENTER_KEYWORDS.firstOrNull { org.contains(it, ignoreCase = true) }
+            } else null
+            val cdnMatch = if (org != null) {
+                CDN_KEYWORDS.firstOrNull { org.contains(it, ignoreCase = true) }
             } else null
             val verdict = when {
                 p.error != null -> Severity.INFO
                 org == null -> Severity.INFO
-                match != null -> Severity.HARD
+                cdnMatch != null -> Severity.INFO     // CDN whitelist wins over datacenter match
+                dcMatch != null -> Severity.HARD
                 else -> Severity.PASS
             }
             val reported = when {
                 p.error != null -> "ERROR: ${p.error}"
                 org == null -> "(no org field)"
-                match != null -> "$org  ←  matched \"$match\""
+                cdnMatch != null -> "$org  ←  CDN whitelist (\"$cdnMatch\")"
+                dcMatch != null -> "$org  ←  matched \"$dcMatch\""
                 else -> org
             }
             DetailEntry(source = p.provider, reported = reported, verdict = verdict)
@@ -117,7 +143,8 @@ object GeoIpProbes {
             value = firstOrg,
             severity = if (isDc) Severity.HARD else Severity.PASS,
             explanation = "Datacenter ASNs (DigitalOcean/AWS/Hetzner/OVH/etc.) = HARD VPN signal. " +
-                "Residential ISP ASNs are clean. Tap to see what each probe returned.",
+                "Residential ISP ASNs are clean. CDN ASNs (Cloudflare, Akamai, Fastly, CloudFront) " +
+                "are whitelisted to suppress false positives. Tap to see what each probe returned.",
             details = asnDetails,
         )
 
@@ -189,24 +216,59 @@ object GeoIpProbes {
             )
         }
 
+        // Transparent proxy headers (methodology §10.2). Forwarding-style HTTP headers added
+        // to a probe response by an in-flight middlebox. Since we connect directly to the
+        // GeoIP services with no proxy, the presence of any of these headers means a
+        // transparent proxy on the path is rewriting the request.
+        val headerHits = results.flatMap { p ->
+            p.proxyHeaders.map { (k, v) -> Triple(p.provider, k, v) }
+        }
+        val headerDetails = results.map { p ->
+            val hits = p.proxyHeaders
+            val (reported, sev) = when {
+                p.error != null -> "ERROR: ${p.error}" to Severity.INFO
+                hits.isEmpty() -> "no forwarding headers" to Severity.PASS
+                else -> hits.entries.joinToString { "${it.key}=${it.value}" } to Severity.HARD
+            }
+            DetailEntry(source = p.provider, reported = reported, verdict = sev)
+        }
+        out += Check(
+            id = "transparent_proxy_headers",
+            category = Category.GEOIP,
+            label = "Transparent proxy headers",
+            value = if (headerHits.isEmpty()) "none" else "${headerHits.size} hits",
+            severity = if (headerHits.isNotEmpty()) Severity.HARD else Severity.PASS,
+            explanation = "Methodology §10.2 — Via / X-Forwarded-For / Forwarded headers added " +
+                "to probe responses indicate a transparent proxy or middlebox is rewriting traffic " +
+                "in flight. We connect to the GeoIP services with Proxy.NO_PROXY, so these headers " +
+                "should never appear on a clean path.",
+            details = headerDetails,
+        )
+
         return out
     }
 
     // ---------- individual probes ----------
 
-    private fun fetch(url: String): String? = runCatching {
-        Http.client.newCall(Request.Builder().url(url).header("User-Agent", "vpn-detector/0.1").build())
+    private data class Fetched(val body: String?, val proxyHeaders: Map<String, String>)
+
+    private fun fetch(url: String): Fetched = runCatching {
+        Http.client.newCall(Request.Builder().url(url).header("User-Agent", "vpn-detector/0.4").build())
             .execute().use { resp ->
-                if (!resp.isSuccessful) return null
-                resp.body?.string()
+                val proxyHeaders = PROXY_HEADER_NAMES.mapNotNull { name ->
+                    resp.header(name)?.let { name to it }
+                }.toMap()
+                if (!resp.isSuccessful) Fetched(null, proxyHeaders)
+                else Fetched(resp.body?.string(), proxyHeaders)
             }
-    }.getOrNull()
+    }.getOrElse { Fetched(null, emptyMap()) }
 
     @Serializable private data class IpifyResp(val ip: String? = null)
     private fun ipify(): ProbeResult = try {
-        val body = fetch("https://api.ipify.org?format=json") ?: return ProbeResult("ipify", error = "no body")
+        val f = fetch("https://api.ipify.org?format=json")
+        val body = f.body ?: return ProbeResult("ipify", error = "no body", proxyHeaders = f.proxyHeaders)
         val r = AppJson.decodeFromString(IpifyResp.serializer(), body)
-        ProbeResult("ipify", ip = r.ip)
+        ProbeResult("ipify", ip = r.ip, proxyHeaders = f.proxyHeaders)
     } catch (e: Exception) {
         ProbeResult("ipify", error = e.message ?: "error")
     }
@@ -220,10 +282,12 @@ object GeoIpProbes {
         val timezone: String? = null,
     )
     private fun ipinfo(): ProbeResult = try {
-        val body = fetch("https://ipinfo.io/json") ?: return ProbeResult("ipinfo", error = "no body")
+        val f = fetch("https://ipinfo.io/json")
+        val body = f.body ?: return ProbeResult("ipinfo", error = "no body", proxyHeaders = f.proxyHeaders)
         val r = AppJson.decodeFromString(IpinfoResp.serializer(), body)
         ProbeResult("ipinfo", ip = r.ip, country = r.country, region = r.region, city = r.city,
-            org = r.org, asn = r.org?.substringBefore(" "), timezone = r.timezone)
+            org = r.org, asn = r.org?.substringBefore(" "), timezone = r.timezone,
+            proxyHeaders = f.proxyHeaders)
     } catch (e: Exception) {
         ProbeResult("ipinfo", error = e.message ?: "error")
     }
@@ -243,11 +307,12 @@ object GeoIpProbes {
     )
     private fun ipApi(): ProbeResult = try {
         // ip-api free tier is HTTP-only; cleartext for this host is allowed via network_security_config.xml
-        val body = fetch("http://ip-api.com/json/?fields=status,countryCode,regionName,city,isp,org,as,proxy,hosting,mobile,query,timezone")
-            ?: return ProbeResult("ip-api", error = "no body")
+        val f = fetch("http://ip-api.com/json/?fields=status,countryCode,regionName,city,isp,org,as,proxy,hosting,mobile,query,timezone")
+        val body = f.body ?: return ProbeResult("ip-api", error = "no body", proxyHeaders = f.proxyHeaders)
         val r = AppJson.decodeFromString(IpApiResp.serializer(), body)
         ProbeResult("ip-api", ip = r.query, country = r.countryCode, region = r.regionName, city = r.city,
-            org = r.isp ?: r.org, asn = r.`as`, isProxy = r.proxy, isHosting = r.hosting, timezone = r.timezone)
+            org = r.isp ?: r.org, asn = r.`as`, isProxy = r.proxy, isHosting = r.hosting,
+            timezone = r.timezone, proxyHeaders = f.proxyHeaders)
     } catch (e: Exception) {
         ProbeResult("ip-api", error = e.message ?: "error")
     }
@@ -262,10 +327,12 @@ object GeoIpProbes {
         val time_zone: String? = null,
     )
     private fun ifconfigCo(): ProbeResult = try {
-        val body = fetch("https://ifconfig.co/json") ?: return ProbeResult("ifconfig.co", error = "no body")
+        val f = fetch("https://ifconfig.co/json")
+        val body = f.body ?: return ProbeResult("ifconfig.co", error = "no body", proxyHeaders = f.proxyHeaders)
         val r = AppJson.decodeFromString(IfconfigCoResp.serializer(), body)
         ProbeResult("ifconfig.co", ip = r.ip, country = r.country_iso, region = r.region_name,
-            city = r.city, asn = r.asn, org = r.asn_org, timezone = r.time_zone)
+            city = r.city, asn = r.asn, org = r.asn_org, timezone = r.time_zone,
+            proxyHeaders = f.proxyHeaders)
     } catch (e: Exception) {
         ProbeResult("ifconfig.co", error = e.message ?: "error")
     }
@@ -276,21 +343,23 @@ object GeoIpProbes {
         val cc: String? = null,
     )
     private fun myipCom(): ProbeResult = try {
-        val body = fetch("https://api.myip.com") ?: return ProbeResult("myip.com", error = "no body")
+        val f = fetch("https://api.myip.com")
+        val body = f.body ?: return ProbeResult("myip.com", error = "no body", proxyHeaders = f.proxyHeaders)
         val r = AppJson.decodeFromString(MyipResp.serializer(), body)
-        ProbeResult("myip.com", ip = r.ip, country = r.cc ?: r.country)
+        ProbeResult("myip.com", ip = r.ip, country = r.cc ?: r.country, proxyHeaders = f.proxyHeaders)
     } catch (e: Exception) {
         ProbeResult("myip.com", error = e.message ?: "error")
     }
 
     private fun cloudflareTrace(): ProbeResult = try {
-        val body = fetch("https://www.cloudflare.com/cdn-cgi/trace") ?: return ProbeResult("cf-trace", error = "no body")
+        val f = fetch("https://www.cloudflare.com/cdn-cgi/trace")
+        val body = f.body ?: return ProbeResult("cf-trace", error = "no body", proxyHeaders = f.proxyHeaders)
         val map = body.lineSequence().mapNotNull {
             val i = it.indexOf('='); if (i <= 0) null else it.substring(0, i) to it.substring(i + 1)
         }.toMap()
         val warp = map["warp"] == "on" || map["gateway"] == "on"
         ProbeResult("cf-trace", ip = map["ip"], country = map["loc"],
-            isVpn = if (warp) true else null)
+            isVpn = if (warp) true else null, proxyHeaders = f.proxyHeaders)
     } catch (e: Exception) {
         ProbeResult("cf-trace", error = e.message ?: "error")
     }
