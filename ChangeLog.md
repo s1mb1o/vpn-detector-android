@@ -1,5 +1,41 @@
 # ChangeLog
 
+## 2026-04-07 (release v0.3.0) — Check C: router-egress traceroute
+
+Implements proposed Check C from `docs/specs/04_proposed-checks.md`:
+maps the L3 path to a foreign anchor (1.1.1.1) using the unprivileged
+ICMP socket via `/system/bin/ping -t N`, GeoIP-resolves every public
+hop, and flags HARD when the first non-RFC1918 hop's country differs
+from the SIM country — i.e. the device is exiting through a router-side
+VPN tunnel.
+
+Validated against the real Pixel 8 + home-router setup in the previous
+session: hop 1 = 192.168.86.1 (LAN gateway), hops 2-3 = RFC1918 inside
+the router (Docker bridge + WG/AWG client), hop 4 = 78.128.99.1 BG
+Sofia AS203380 — first public hop ≠ SIM country (RU). Detection
+condition fires correctly on this network.
+
+Implementation notes:
+
+- New `detect/probes/Traceroute.kt`. Spawns 15 parallel `/system/bin/ping
+  -c 1 -W 1 -n -t N` processes via coroutines, parses both
+  `From X.X.X.X` (TTL exceeded) and `bytes from X.X.X.X` (final reply)
+  lines with one regex, trims hops past the first final reply.
+- Per-hop GeoIP lookup via `ipinfo.io/<ip>/json`, deduped on unique
+  public IPs. Adds ~3-5 HTTP calls per run.
+- RFC1918 detection inline (10/8, 172.16-31/16, 192.168/16, 169.254/16,
+  127/8, plus CGNAT 100.64/10).
+- Wired into `DetectorEngine.runAll` as a fourth parallel async block.
+- New row `router_egress_country` in PROBES tab. Severity rule:
+  - HARD: first non-RFC1918 hop country ≠ SIM country
+  - PASS: first non-RFC1918 hop country == SIM country
+  - INFO: traceroute returned no hops, or SIM country unknown
+- Per-hop DetailEntry rows in the details dialog: `hop N: <ip>
+  <country> <city> <org>`, severity per hop (HARD only on the
+  first-public mismatch row, INFO on private hops, PASS on matching
+  hops).
+- versionCode 2 → 3, versionName 0.2.0 → 0.3.0.
+
 ## 2026-04-07 (release v0.2.0)
 
 First shareable build. APK at `app/build/outputs/apk/release/app-release.apk`,
