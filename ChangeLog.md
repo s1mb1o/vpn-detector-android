@@ -1,5 +1,78 @@
 # ChangeLog
 
+## 2026-04-07 (release v0.4.0) — Methodology v2 coverage pass
+
+Closes most of the gap between our catalog and the published anti-fraud
+methodology document (`docs/specs/05_metrics-review.md` is the full
+review and a per-check mapping back to the methodology).
+
+New checks (System tab):
+- `tun_iface` / `active_iface_name` / `default_route_tun` now also match
+  `ipsec*` interfaces (methodology §6.4 mentions IKEv2/IPsec).
+- `jvm_proxy` — System.getProperty(http.proxyHost / https.proxyHost /
+  socksProxyHost). Per-process proxies that LinkProperties.httpProxy
+  does not see. HARD when any host is set.
+- `vpn_transport_info` — API 31+ NetworkCapabilities.transportInfo
+  decoded as VpnTransportInfo, exposing the active VPN session id and
+  bypassable flag (methodology §6.4).
+- `route_anomalies` — counts default routes and routes via tunnel
+  interfaces (methodology §7.6). Per-source DetailEntry breakdown.
+- `dumpsys_vpn` — best-effort `Runtime.exec(/system/bin/dumpsys
+  vpn_management)` shell-out to enumerate active VPN packages on
+  Android 12+ (methodology §7.4). Falls back to INFO on a regular uid.
+- Extended `KNOWN_VPN_PACKAGES` with ByeDPI, Orbot/Tor, Intra,
+  ProxyDroid, AdGuard VPN, and a few others (methodology §6 + §7.8).
+
+New checks (Probes tab):
+- `local_proxy_listeners` (new file `LocalListenerProbe.kt`) —
+  TCP-connects to 127.0.0.1 on every methodology-listed proxy port
+  (SOCKS 1080/9000/9050/9051/9150, HTTP 3128/8080/8888,
+  transparent 4080/7000/7044/12345, Shadowsocks/V2Ray local 1081/1086).
+  Any successful connect = a proxy is running on the device. Bypasses
+  the Android-10+ SELinux block on /proc/net/tcp enumeration.
+
+New checks (GeoIP tab):
+- `transparent_proxy_headers` — methodology §10.2. Inspects every
+  GeoIP probe response for Via / X-Forwarded-For / Forwarded /
+  X-Real-IP. Since OkHttp talks to the GeoIP services with
+  Proxy.NO_PROXY, any of these headers means a transparent middlebox
+  is rewriting traffic in flight. HARD on any hit.
+- `asn_class` — CDN whitelist (methodology §4 false-positive mitigation).
+  Cloudflare/Akamai/Fastly/CloudFront/Google/Incapsula/StackPath etc.
+  org-name match demotes the row from HARD to INFO so legitimate
+  CDN-fronted apps stop firing.
+- `country_history` — methodology §5.4 step 5. Compares the current
+  external_country to the most recent prior run. <1h gap = HARD,
+  <12h = SOFT, otherwise INFO.
+
+New decision-matrix verdict label (methodology §9 Table 2):
+- New `MatrixLabel` enum and three new fields on `Verdict`
+  (`matrix`, `matrixGeoip`, `matrixDirect`, `matrixIndirect`).
+  Each axis fires on any HARD signal in its category set. The
+  three-class label (BYPASS_NOT_DETECTED / NEEDS_REVIEW /
+  BYPASS_DETECTED) is derived directly from the methodology's
+  decision matrix and runs alongside the existing scalar verdict.
+- VerdictBar UI shows the label and per-axis booleans.
+- Share text and logcat dump now include the matrix label.
+
+Engine wiring:
+- `DetectorEngine.runAll` takes a new optional `previousRun`
+  parameter for the history check.
+- Five categories now run in parallel: SystemChecks + GeoIpProbes +
+  ConsistencyChecks + ActiveProbes + Traceroute + LocalListenerProbe,
+  plus HistoryChecks at the end.
+- `AppViewModel.runAll` reads the most recent prior run from the
+  repository and passes it to the engine.
+
+Docs:
+- `docs/specs/05_metrics-review.md` — comprehensive per-check review.
+  Every detection metric documented with: methodology source paragraph,
+  what it tests, severity rule, false-positive sources, mitigations,
+  code reference, and known limitations.
+- ChangeLog entry above.
+
+versionCode 3 → 4, versionName 0.3.0 → 0.4.0.
+
 ## 2026-04-07 (release v0.3.0) — Check C: router-egress traceroute
 
 Implements proposed Check C from `docs/specs/04_proposed-checks.md`:

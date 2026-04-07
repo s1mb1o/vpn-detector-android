@@ -14,3 +14,5 @@ local.properties
 # Release signing material — never commit
 keystore/
 keystore.properties
+# Third-party methodology source documents — kept local, cited via docs/source-methodology.md
+docs/ocr_*.md
