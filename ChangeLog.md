@@ -1,5 +1,29 @@
 # ChangeLog
 
+## 2026-04-07 (release v0.2.0)
+
+First shareable build. APK at `app/build/outputs/apk/release/app-release.apk`,
+sha256 84b99c59ddcee8a76f0ede754eaf1232460ccffa576e7ac6549101d5f3d9dadf.
+
+- Package renamed `ru.shmelev.vpndetector` → `net.vpndetector` to remove
+  developer name from the APK and from `pm list packages`. Source tree moved
+  from `app/src/main/kotlin/ru/shmelev/vpndetector/` to
+  `app/src/main/kotlin/net/vpndetector/`.
+- Release signing config: `keystore/release.jks` (gitignored) with anonymous
+  identity `CN=vpn-detector-anon, O=anonymous, C=ZZ`. Credentials read from
+  `keystore.properties` (also gitignored). Falls back to debug-signing on a
+  fresh checkout without secrets.
+- R8 minification + resource shrinking enabled for release builds. ProGuard
+  rules added to keep kotlinx.serialization, OkHttp, Compose intact.
+- versionCode 1 → 2, versionName 0.1.0 → 0.2.0.
+- New PRIVACY.md and RELEASE.md.
+- Telegram presence check added to System tab (weak signal).
+- Share icon in the verdict bar — exports the run as markdown via the system
+  share sheet.
+- Per-source DetailEntry breakdown for reputation_flag, asn_class,
+  probe_ip_agreement, lat_ru, lat_foreign, lat_ratio.
+- Tap row → details dialog with full check info.
+
 ## 2026-04-07 (evening) — emulator validation
 
 End-to-end run on Pixel 3a API 34 emulator. App builds, installs, all 4 detection

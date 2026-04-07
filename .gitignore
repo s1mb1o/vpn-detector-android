@@ -11,3 +11,6 @@ local.properties
 *.apk
 *.aab
 **/build/
+# Release signing material — never commit
+keystore/
+keystore.properties
