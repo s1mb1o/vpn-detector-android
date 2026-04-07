@@ -140,19 +140,9 @@ object SystemChecks {
             )
         }
 
-        // 5. Underlying networks (API 31+) — non-empty means current is a VPN built on top of another
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val underlying = caps?.underlyingNetworks
-            val present = !underlying.isNullOrEmpty()
-            out += Check(
-                id = "underlying_networks",
-                category = Category.SYSTEM,
-                label = "underlyingNetworks",
-                value = if (underlying == null) "null" else "${underlying.size} entries",
-                severity = if (present) Severity.HARD else Severity.PASS,
-                explanation = "NetworkCapabilities.underlyingNetworks. Non-empty = active network is a VPN on top of another.",
-            )
-        }
+        // 5. Underlying networks — NetworkCapabilities.getUnderlyingNetworks() is @SystemApi
+        // (hidden from regular apps), so we cannot call it without reflection.
+        // Equivalent signal is already covered by transport_vpn + tun_iface.
 
         // 6. Default route via tun
         run {

@@ -1,5 +1,17 @@
 # ChangeLog
 
+## 2026-04-07 (evening) — emulator validation
+
+End-to-end run on Pixel 3a API 34 emulator. App builds, installs, all 4 detection
+tabs and History render correctly. Verdict logic verified: emulator (US SIM, BG
+exit IP via host) is correctly classified as DETECTED with 5 hard / 2 soft signals
+(SIM↔IP, network↔IP country mismatches, RU latency, latency ordering, probe
+reputation flag).
+
+- Removed `underlying_networks` check — `NetworkCapabilities.getUnderlyingNetworks()`
+  is `@SystemApi`/hidden, not callable from a regular app (compile error). The
+  signal is already covered by `transport_vpn` + `tun_iface`.
+
 ## 2026-04-07 (afternoon) — review fixes from codex + gemini
 
 - **Manifest**: hoist `xmlns:tools` to root `<manifest>` (was on `<application>`, broke parsing of `tools:ignore` on a sibling permission).
