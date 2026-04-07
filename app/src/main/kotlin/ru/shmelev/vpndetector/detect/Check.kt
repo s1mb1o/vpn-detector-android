@@ -16,6 +16,14 @@ enum class Severity { HARD, SOFT, INFO, PASS }
 @Serializable
 enum class Category { SYSTEM, GEOIP, CONSISTENCY, PROBES }
 
+/** A single per-source row inside a Check's details, e.g. "ip-api → hosting=true". */
+@Serializable
+data class DetailEntry(
+    val source: String,
+    val reported: String,
+    val verdict: Severity = Severity.INFO,
+)
+
 @Serializable
 data class Check(
     val id: String,
@@ -24,4 +32,6 @@ data class Check(
     val value: String,
     val severity: Severity,
     val explanation: String,
+    /** Per-source breakdown shown in the details dialog. Empty if not applicable. */
+    val details: List<DetailEntry> = emptyList(),
 )

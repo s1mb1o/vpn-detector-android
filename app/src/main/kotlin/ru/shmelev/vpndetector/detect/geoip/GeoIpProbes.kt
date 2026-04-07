@@ -9,6 +9,7 @@ import kotlinx.serialization.Serializable
 import okhttp3.Request
 import ru.shmelev.vpndetector.detect.Category
 import ru.shmelev.vpndetector.detect.Check
+import ru.shmelev.vpndetector.detect.DetailEntry
 import ru.shmelev.vpndetector.detect.Severity
 import ru.shmelev.vpndetector.net.AppJson
 import ru.shmelev.vpndetector.net.Http
@@ -87,54 +88,92 @@ object GeoIpProbes {
             explanation = "What the world sees. PASS only on RU. Real verdict comes from Consistency tab.",
         )
 
-        // ASN class — find which keyword matches and which probe reported the org
-        val orgProbe = ok.firstOrNull { !it.org.isNullOrBlank() }
-        val org = orgProbe?.org.orEmpty()
-        val matchedKeyword = DATACENTER_KEYWORDS.firstOrNull { org.contains(it, ignoreCase = true) }
-        val isDc = matchedKeyword != null
+        // ASN class — short value, per-probe org breakdown in details
+        val asnDetails = results.map { p ->
+            val org = p.org ?: p.asn
+            val match = if (org != null) {
+                DATACENTER_KEYWORDS.firstOrNull { org.contains(it, ignoreCase = true) }
+            } else null
+            val verdict = when {
+                p.error != null -> Severity.INFO
+                org == null -> Severity.INFO
+                match != null -> Severity.HARD
+                else -> Severity.PASS
+            }
+            val reported = when {
+                p.error != null -> "ERROR: ${p.error}"
+                org == null -> "(no org field)"
+                match != null -> "$org  ←  matched \"$match\""
+                else -> org
+            }
+            DetailEntry(source = p.provider, reported = reported, verdict = verdict)
+        }
+        val isDc = asnDetails.any { it.verdict == Severity.HARD }
+        val firstOrg = ok.firstNotNullOfOrNull { it.org } ?: "?"
         out += Check(
             id = "asn_class",
             category = Category.GEOIP,
             label = "ASN organisation",
-            value = if (org.isEmpty()) "?" else
-                if (isDc) "$org  ←  matched \"$matchedKeyword\" (${orgProbe?.provider})"
-                else "$org (${orgProbe?.provider})",
+            value = firstOrg,
             severity = if (isDc) Severity.HARD else Severity.PASS,
-            explanation = "Source: ${orgProbe?.provider ?: "—"}. " +
-                "Datacenter ASNs (DigitalOcean/AWS/Hetzner/OVH/Linode/Vultr/GCP/Azure/M247/etc.) = HARD VPN signal. " +
-                "Residential ISP ASNs are clean. Matched keyword: ${matchedKeyword ?: "none"}.",
+            explanation = "Datacenter ASNs (DigitalOcean/AWS/Hetzner/OVH/etc.) = HARD VPN signal. " +
+                "Residential ISP ASNs are clean. Tap to see what each probe returned.",
+            details = asnDetails,
         )
 
-        // Reputation flags — list every probe + flag that fired
-        val hits = ok.flatMap { p ->
-            buildList {
-                if (p.isProxy == true) add("${p.provider}: proxy=true")
-                if (p.isHosting == true) add("${p.provider}: hosting=true")
-                if (p.isVpn == true) add("${p.provider}: vpn=true")
+        // Reputation flags — short value, per-probe flag breakdown in details
+        val repDetails = results.map { p ->
+            val fields = buildList {
+                if (p.isProxy == true) add("proxy=true")
+                if (p.isHosting == true) add("hosting=true")
+                if (p.isVpn == true) add("vpn=true")
+                if (p.isProxy == false) add("proxy=false")
+                if (p.isHosting == false) add("hosting=false")
+                if (p.isVpn == false) add("vpn=false")
             }
+            val verdict = when {
+                p.error != null -> Severity.INFO
+                p.isProxy == true || p.isHosting == true || p.isVpn == true -> Severity.HARD
+                fields.isEmpty() -> Severity.INFO
+                else -> Severity.PASS
+            }
+            val reported = when {
+                p.error != null -> "ERROR: ${p.error}"
+                fields.isEmpty() -> "(provider does not expose proxy/hosting/vpn fields)"
+                else -> fields.joinToString(", ")
+            }
+            DetailEntry(source = p.provider, reported = reported, verdict = verdict)
         }
-        val flagged = hits.isNotEmpty()
+        val flagged = repDetails.any { it.verdict == Severity.HARD }
         out += Check(
             id = "reputation_flag",
             category = Category.GEOIP,
             label = "Probe reputation flag",
-            value = if (flagged) hits.joinToString("  •  ") else "clean (no probe set proxy/hosting/vpn)",
+            value = if (flagged) "flagged" else "clean",
             severity = if (flagged) Severity.HARD else Severity.PASS,
-            explanation = "Anti-fraud flag from a GeoIP probe. " +
-                "ip-api.com returns proxy/hosting/mobile booleans; ipinfo and ifconfig.co " +
-                "have richer fields on paid tiers. Cloudflare cdn-cgi/trace exposes warp=on/gateway=on " +
-                "(treated as vpn=true). Each entry above is in the form `provider: field=value`.",
+            explanation = "Anti-fraud flag from a GeoIP probe. ip-api.com returns proxy/hosting; " +
+                "Cloudflare cdn-cgi/trace exposes warp=on/gateway=on (treated as vpn=true). " +
+                "Tap to see which provider returned what.",
+            details = repDetails,
         )
 
-        // Probe disagreement on IP
+        // Probe disagreement on IP — short value, per-probe IP in details
+        val ipDetails = results.map { p ->
+            DetailEntry(
+                source = p.provider,
+                reported = p.error?.let { "ERROR: $it" } ?: (p.ip ?: "?"),
+                verdict = if (p.error != null || p.ip == null) Severity.INFO else Severity.PASS,
+            )
+        }
         val ips = ok.mapNotNull { it.ip }.toSet()
         out += Check(
             id = "probe_ip_agreement",
             category = Category.GEOIP,
             label = "Probe IP agreement",
-            value = ips.joinToString(),
+            value = if (ips.size <= 1) ips.firstOrNull() ?: "?" else "${ips.size} different IPs",
             severity = if (ips.size > 1) Severity.HARD else Severity.PASS,
             explanation = "Different probes seeing different external IPs = split routing leak.",
+            details = ipDetails,
         )
 
         // Probe disagreement on country (DB lag)

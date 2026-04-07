@@ -1,18 +1,24 @@
 package ru.shmelev.vpndetector.ui.tabs
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -25,9 +31,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import ru.shmelev.vpndetector.data.model.RunResult
 import ru.shmelev.vpndetector.detect.Category
 import ru.shmelev.vpndetector.detect.Check
+import ru.shmelev.vpndetector.detect.DetailEntry
 import ru.shmelev.vpndetector.detect.Severity
 
 @Composable
@@ -45,9 +53,7 @@ fun CategoryTab(run: RunResult?, category: Category) {
             CheckRow(c) { selected = c }
         }
     }
-    selected?.let { c ->
-        CheckDetailDialog(c) { selected = null }
-    }
+    selected?.let { c -> CheckDetailDialog(c) { selected = null } }
 }
 
 @Composable
@@ -62,7 +68,8 @@ private fun CheckRow(c: Check, onClick: () -> Unit) {
     ) {
         Column(Modifier.padding(12.dp)) {
             Text("[$label] ${c.label}", fontWeight = FontWeight.Bold)
-            Text(c.value, maxLines = 2)
+            Text(c.value)
+            Text(c.explanation, fontWeight = FontWeight.Light)
         }
     }
 }
@@ -81,9 +88,38 @@ private fun CheckDetailDialog(c: Check, onDismiss: () -> Unit) {
                 LabelledBlock("Severity", c.severity.name)
                 LabelledBlock("Value", c.value)
                 LabelledBlock("Explanation", c.explanation)
+                if (c.details.isNotEmpty()) {
+                    Spacer(Modifier.padding(top = 12.dp))
+                    Text("Per-source breakdown", fontWeight = FontWeight.Bold)
+                    HorizontalDivider(Modifier.padding(vertical = 4.dp))
+                    c.details.forEach { DetailRow(it) }
+                }
             }
         },
     )
+}
+
+@Composable
+private fun DetailRow(d: DetailEntry) {
+    val (bg, label) = severityStyle(d.verdict)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp)
+            .background(bg, RoundedCornerShape(4.dp))
+            .padding(8.dp),
+    ) {
+        Text(
+            text = "[$label]",
+            fontWeight = FontWeight.Bold,
+            fontSize = 12.sp,
+        )
+        Spacer(Modifier.width(6.dp))
+        Column(Modifier.fillMaxWidth()) {
+            Text(d.source, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+            Text(d.reported, fontSize = 13.sp)
+        }
+    }
 }
 
 @Composable
