@@ -115,6 +115,59 @@ If all three new checks fire alongside the existing Consistency `sim_vs_ip` HARD
 - Is `Settings.Secure.always_on_vpn_app` readable on Android 14 without privileged perm? (Some OEM ROMs restrict.)
 - Detecting Magisk Hide / Zygisk reliably from a non-root app — limited; current implementation is heuristic only.
 
+### Validation: Check C (`/system/bin/ping -t N`) on real device
+
+Two runs on Pixel 8 (API 35) over USB to validate Path A.
+
+`/system/bin/ping` is present, owned by `root:shell`, mode `755`. `/proc/sys/net/ipv4/ping_group_range` is `0 2147483647` — every uid can use the unprivileged ICMP socket. No setuid bit, no root, no special permission needed.
+
+#### Run 1 — phone has its own WireGuard client active
+
+```
+hop  1: 172.30.0.1   ← phone's wg tun interface
+hop  2: 172.17.0.12  ← (inside the home router)
+hop  3: 10.10.0.1    ← (inside the home router)
+hop  4: 78.128.99.1  ← BG Sofia · AS203380 DA International Group Ltd.
+hop  5: 10.0.1.1
+hop  6: 94.72.150.178
+hop  7: 178.132.82.74  ← BG Sofia · AS57344 Telehouse EAD
+hop  8: 178.132.81.234
+hop  9: 1.1.1.1
+```
+
+The first hop is `172.30.0.1`, the WireGuard tunnel interface on the phone itself, **not** the LAN gateway `192.168.86.1`. This is itself the diagnostic for the phone-side VPN — and is already covered by `transport_vpn` and `tun_iface` in System tab. The route table at this point had the default route in a separate routing table belonging to the wg interface.
+
+#### Run 2 — phone-side VPN disabled, only home-router VPN remains
+
+```
+hop  1: 192.168.86.1  ← home router LAN side ✓
+hop  2: 172.17.0.12   ← Docker default bridge inside the router
+hop  3: 10.10.0.1     ← AmneziaWG / WG client interface inside the router
+hop  4: 78.128.99.1   ← BG Sofia · AS203380 DA International Group Ltd.
+hop  5: 10.0.1.1      ← in-tunnel hop on the upstream provider
+hop  6: 94.72.150.178 ← BG Sofia
+hop  7: 178.132.82.74 ← BG Sofia · AS57344 Telehouse EAD
+hop  8: 178.132.81.234
+hop  9: 1.1.1.1
+```
+
+Route table now cleanly says `default via 192.168.86.1 dev wlan0 table 1047`.
+
+#### What Run 2 confirms
+
+- Hop 1 = `192.168.86.1` is the expected LAN gateway. PASS.
+- Hops 2-3 are RFC1918 ranges that the LAN gateway forwards into. They are *inside* the router box — the `172.17.0.0/16` subnet is the Docker default bridge (the router runs containers), `10.10.0.0/24` is one of the WG/AWG client interfaces. This is a unique fingerprint: a normal residential router decrements TTL once and the next hop is the ISP. **Two consecutive RFC1918 hops after the LAN gateway is the signature of a router running tunnel containers.**
+- Hop 4 is the **first non-RFC1918 hop**, in **BG Sofia, AS203380**. The phone's SIM is RU (MegaFon, MCC 250). `first_public_hop_country != sim_country` → **HARD signal for Check C**, exactly as the spec describes.
+- Hop 5 (`10.0.1.1`) being RFC1918 *between* two BG public hops is also informative — it's the in-tunnel address space of the upstream VPN provider. Not used by the rule directly, just an interesting observation.
+- The visible exit IP (`91.148.132.84`, also AS203380) doesn't appear in the trace because it's the SNAT public face, not a forwarding hop on the way to `1.1.1.1`. Same ASN though, so the story is consistent.
+
+#### Implementation notes from validation
+
+- The `From X.X.X.X icmp_seq=1 Time to live exceeded` and `64 bytes from X.X.X.X` line shapes were parseable in both runs with a single regex. No surprises.
+- 9 hops × ~1 s timeout each = ~9 s wall time when run sequentially. Implementing with `coroutineScope { (1..maxTtl).map { async { ping(it) } } }` brings this down to ~1-2 s.
+- The rule `first_non_RFC1918_hop_country != sim_country` works correctly for both runs. The spec phrasing "hop 2" must be replaced with "first non-RFC1918 hop" — already noted in `04_proposed-checks.md`.
+- A re-runnable shell version of this validation lives at `tools/traceroute.sh`. Use it after every router-side change to verify the new path without rebuilding the APK.
+
 ## 2026-04-07
 
 ### Android VPN detection APIs (current)
