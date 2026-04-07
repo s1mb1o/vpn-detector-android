@@ -87,28 +87,43 @@ object GeoIpProbes {
             explanation = "What the world sees. PASS only on RU. Real verdict comes from Consistency tab.",
         )
 
-        // ASN class
-        val org = ok.firstNotNullOfOrNull { it.org } ?: ""
-        val isDc = DATACENTER_KEYWORDS.any { org.contains(it, ignoreCase = true) }
+        // ASN class — find which keyword matches and which probe reported the org
+        val orgProbe = ok.firstOrNull { !it.org.isNullOrBlank() }
+        val org = orgProbe?.org.orEmpty()
+        val matchedKeyword = DATACENTER_KEYWORDS.firstOrNull { org.contains(it, ignoreCase = true) }
+        val isDc = matchedKeyword != null
         out += Check(
             id = "asn_class",
             category = Category.GEOIP,
             label = "ASN organisation",
-            value = org.ifEmpty { "?" },
+            value = if (org.isEmpty()) "?" else
+                if (isDc) "$org  ←  matched \"$matchedKeyword\" (${orgProbe?.provider})"
+                else "$org (${orgProbe?.provider})",
             severity = if (isDc) Severity.HARD else Severity.PASS,
-            explanation = "Datacenter ASNs (DigitalOcean/AWS/Hetzner/OVH/etc.) = HARD VPN signal. " +
-                "Residential ISP ASNs are clean.",
+            explanation = "Source: ${orgProbe?.provider ?: "—"}. " +
+                "Datacenter ASNs (DigitalOcean/AWS/Hetzner/OVH/Linode/Vultr/GCP/Azure/M247/etc.) = HARD VPN signal. " +
+                "Residential ISP ASNs are clean. Matched keyword: ${matchedKeyword ?: "none"}.",
         )
 
-        // Reputation flags
-        val flagged = ok.any { (it.isProxy == true) || (it.isHosting == true) || (it.isVpn == true) }
+        // Reputation flags — list every probe + flag that fired
+        val hits = ok.flatMap { p ->
+            buildList {
+                if (p.isProxy == true) add("${p.provider}: proxy=true")
+                if (p.isHosting == true) add("${p.provider}: hosting=true")
+                if (p.isVpn == true) add("${p.provider}: vpn=true")
+            }
+        }
+        val flagged = hits.isNotEmpty()
         out += Check(
             id = "reputation_flag",
             category = Category.GEOIP,
             label = "Probe reputation flag",
-            value = if (flagged) "flagged" else "clean",
+            value = if (flagged) hits.joinToString("  •  ") else "clean (no probe set proxy/hosting/vpn)",
             severity = if (flagged) Severity.HARD else Severity.PASS,
-            explanation = "Any probe returned proxy/hosting/vpn=true.",
+            explanation = "Anti-fraud flag from a GeoIP probe. " +
+                "ip-api.com returns proxy/hosting/mobile booleans; ipinfo and ifconfig.co " +
+                "have richer fields on paid tiers. Cloudflare cdn-cgi/trace exposes warp=on/gateway=on " +
+                "(treated as vpn=true). Each entry above is in the form `provider: field=value`.",
         )
 
         // Probe disagreement on IP
