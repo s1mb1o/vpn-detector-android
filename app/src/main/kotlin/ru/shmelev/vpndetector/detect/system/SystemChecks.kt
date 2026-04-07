@@ -1,16 +1,21 @@
 package ru.shmelev.vpndetector.detect.system
 
 import android.Manifest
+import android.app.ActivityManager
+import android.app.AppOpsManager
+import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.pm.PackageManager
 import android.net.ConnectivityManager
 import android.net.LinkProperties
 import android.net.NetworkCapabilities
 import android.os.Build
+import android.os.Process
 import android.provider.Settings
 import androidx.core.content.ContextCompat
 import ru.shmelev.vpndetector.detect.Category
 import ru.shmelev.vpndetector.detect.Check
+import ru.shmelev.vpndetector.detect.DetailEntry
 import ru.shmelev.vpndetector.detect.Severity
 import java.net.NetworkInterface
 
@@ -47,6 +52,19 @@ object SystemChecks {
         "94.140.15.15" to "AdGuard",
         "208.67.222.222" to "OpenDNS",
         "208.67.220.220" to "OpenDNS",
+    )
+
+    /** Telegram-family packages. Telegram is a weak signal: presence + active use suggests
+     *  the user routinely bypasses RKN's various Telegram blocks (router VPN, MTProto proxy, etc.). */
+    private val TELEGRAM_PACKAGES = listOf(
+        "org.telegram.messenger",          // official stable
+        "org.telegram.messenger.web",      // official from web site
+        "org.telegram.messenger.beta",     // beta
+        "org.thunderdog.challegram",       // Telegram X
+        "nekox.messenger",                 // NekoX fork
+        "tw.nekomimi.nekogram",            // Nekogram
+        "ua.itaysonlab.messenger",         // Forkgram
+        "xyz.nextalone.nagram",            // Nagram
     )
 
     private val KNOWN_DOT_HOSTS = setOf(
@@ -376,6 +394,87 @@ object SystemChecks {
             )
         }
 
+        // 18. Telegram presence (weak signal — see note in TELEGRAM_PACKAGES doc)
+        run {
+            val pm = ctx.packageManager
+            val installed = TELEGRAM_PACKAGES.mapNotNull { pkg ->
+                runCatching {
+                    val pi = pm.getPackageInfo(pkg, 0)
+                    pkg to pi
+                }.getOrNull()
+            }
+
+            val hasUsageAccess = hasUsageStatsPermission(ctx)
+            val running = if (hasUsageAccess) {
+                runCatching { runningTelegramPids(ctx) }.getOrDefault(emptyList())
+            } else emptyList()
+
+            // Build per-source details
+            val details = TELEGRAM_PACKAGES.map { pkg ->
+                val pi = installed.firstOrNull { it.first == pkg }?.second
+                val isRunning = pi != null && running.contains(pkg)
+                val (reported, sev) = when {
+                    pi == null -> "not installed" to Severity.PASS
+                    isRunning -> "installed (vN/A) · running now" to Severity.SOFT
+                    hasUsageAccess -> "installed · not in foreground" to Severity.SOFT
+                    else -> "installed (running state unknown — grant Usage Access)" to Severity.SOFT
+                }
+                DetailEntry(source = pkg, reported = reported, verdict = sev)
+            }
+
+            val installedCount = installed.size
+            val sev = if (installedCount > 0) Severity.SOFT else Severity.PASS
+            out += Check(
+                id = "telegram_present",
+                category = Category.SYSTEM,
+                label = "Telegram presence",
+                value = when {
+                    installedCount == 0 -> "none"
+                    running.isNotEmpty() -> "$installedCount installed, ${running.size} running"
+                    else -> "$installedCount installed"
+                },
+                severity = sev,
+                explanation = "Weak signal: Telegram is recurrently throttled / blocked in RU. " +
+                    "A user who keeps Telegram installed and uses it routinely is likely bypassing " +
+                    "those restrictions (router VPN, MTProto proxy, etc.). Running-state detection " +
+                    "needs Usage Access permission (Settings → Apps → Special access → Usage access).",
+                details = details,
+            )
+        }
+
         return out
+    }
+
+    /** True iff the user has granted PACKAGE_USAGE_STATS to this app. */
+    private fun hasUsageStatsPermission(ctx: Context): Boolean {
+        val appOps = ctx.getSystemService(Context.APP_OPS_SERVICE) as? AppOpsManager ?: return false
+        val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            appOps.unsafeCheckOpNoThrow(
+                AppOpsManager.OPSTR_GET_USAGE_STATS,
+                Process.myUid(),
+                ctx.packageName,
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            appOps.checkOpNoThrow(
+                AppOpsManager.OPSTR_GET_USAGE_STATS,
+                Process.myUid(),
+                ctx.packageName,
+            )
+        }
+        return mode == AppOpsManager.MODE_ALLOWED
+    }
+
+    /** Returns the subset of [TELEGRAM_PACKAGES] that has been used in the last 5 minutes
+     *  (best-effort proxy for "running"). Requires Usage Access permission. */
+    private fun runningTelegramPids(ctx: Context): List<String> {
+        val usm = ctx.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager
+            ?: return emptyList()
+        val now = System.currentTimeMillis()
+        val stats = usm.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, now - 24 * 3600_000L, now)
+            ?: return emptyList()
+        val recentMs = 5 * 60 * 1000L
+        return stats.filter { it.packageName in TELEGRAM_PACKAGES && now - it.lastTimeUsed < recentMs }
+            .map { it.packageName }
     }
 }
