@@ -13,6 +13,7 @@ import android.util.Log
 import net.vpndetector.data.RunRepository
 import net.vpndetector.data.model.RunResult
 import net.vpndetector.detect.DetectorEngine
+import net.vpndetector.detect.Severity
 
 class AppViewModel(app: Application) : AndroidViewModel(app) {
 
@@ -39,8 +40,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 val result = DetectorEngine.runAll(getApplication(), tag)
                 _current.value = result
                 repo.add(result)
+                logRun(result)
             } catch (e: Throwable) {
-                Log.e("AppViewModel", "runAll failed", e)
+                Log.e(LOG_TAG, "runAll failed", e)
                 _error.value = e.message ?: e.javaClass.simpleName
             } finally {
                 _running.value = false
@@ -51,4 +53,26 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun clearHistory() {
         viewModelScope.launch { repo.clear() }
     }
+
+    /** Dump every check + per-source detail to logcat under tag VpnDetector. */
+    private fun logRun(r: RunResult) {
+        Log.i(LOG_TAG, "===== run ts=${r.timestamp} verdict=${r.verdict.level} " +
+            "score=${r.verdict.score} hard=${r.verdict.hardCount} soft=${r.verdict.softCount} =====")
+        for (c in r.checks) {
+            Log.i(LOG_TAG, "[${c.severity.short()}] ${c.category}/${c.id}: ${c.label} = ${c.value}")
+            for (d in c.details) {
+                Log.i(LOG_TAG, "    [${d.verdict.short()}] ${d.source} -> ${d.reported}")
+            }
+        }
+        Log.i(LOG_TAG, "===== end run =====")
+    }
+
+    private fun Severity.short(): String = when (this) {
+        Severity.HARD -> "FAIL"
+        Severity.SOFT -> "WARN"
+        Severity.PASS -> "PASS"
+        Severity.INFO -> "INFO"
+    }
+
+    private companion object { const val LOG_TAG = "VpnDetector" }
 }

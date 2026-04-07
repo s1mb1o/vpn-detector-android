@@ -26,3 +26,12 @@
 # Strip source-file attribute (also strips developer-path leaks)
 -renamesourcefileattribute SourceFile
 -keepattributes SourceFile,LineNumberTable
+
+# Keep Log.i / Log.d in the release build — the QA harness logs every run
+# under tag "VpnDetector" so testers can pull results via `adb logcat`.
+# proguard-android-optimize.txt strips these by default; cancel that.
+-keep class android.util.Log { *; }
+-assumenosideeffects class android.util.Log {
+    public static int v(...);
+}
+# (only verbose stripped; i/d/w/e preserved)

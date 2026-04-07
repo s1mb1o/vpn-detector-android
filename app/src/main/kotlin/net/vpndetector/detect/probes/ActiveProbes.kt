@@ -15,15 +15,17 @@ import java.net.NetworkInterface
 
 object ActiveProbes {
 
+    // Anchors must respond to HEAD with 2xx (or 405 which we accept).
+    // Avoid hosts with anti-bot tarpits (vk.com → 418) and HEAD blockers (wikipedia.org → 403).
     private val RU_ANCHORS = listOf(
         "https://yandex.ru/favicon.ico",
         "https://mail.ru/favicon.ico",
-        "https://vk.com/favicon.ico",
+        "https://gosuslugi.ru/favicon.ico",
     )
     private val FOREIGN_ANCHORS = listOf(
         "https://www.google.com/favicon.ico",
         "https://www.cloudflare.com/favicon.ico",
-        "https://www.wikipedia.org/favicon.ico",
+        "https://www.apple.com/favicon.ico",
     )
 
     suspend fun run(): List<Check> = withContext(Dispatchers.IO) {
