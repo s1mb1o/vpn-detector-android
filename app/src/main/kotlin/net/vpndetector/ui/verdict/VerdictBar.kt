@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import net.vpndetector.detect.MatrixLabel
 import net.vpndetector.detect.Verdict
 import net.vpndetector.detect.VerdictLevel
 
@@ -45,6 +46,12 @@ fun VerdictBar(v: Verdict?, onShare: (() -> Unit)? = null) {
                     "score=${v.score}  hard=${v.hardCount}  soft=${v.softCount}",
                     color = Color.White,
                 )
+                Text(
+                    "matrix: ${matrixLabelText(v.matrix)}  " +
+                        "[geoip=${v.matrixGeoip.short()} direct=${v.matrixDirect.short()} " +
+                        "indirect=${v.matrixIndirect.short()}]",
+                    color = Color.White,
+                )
             } else {
                 Text("Tap “Run all checks” to start.", color = Color.White)
             }
@@ -56,3 +63,11 @@ fun VerdictBar(v: Verdict?, onShare: (() -> Unit)? = null) {
         }
     }
 }
+
+private fun matrixLabelText(m: MatrixLabel): String = when (m) {
+    MatrixLabel.BYPASS_NOT_DETECTED -> "BYPASS NOT DETECTED"
+    MatrixLabel.NEEDS_REVIEW -> "NEEDS REVIEW"
+    MatrixLabel.BYPASS_DETECTED -> "BYPASS DETECTED"
+}
+
+private fun Boolean.short(): String = if (this) "Y" else "n"

@@ -25,6 +25,10 @@ data class RunResult(
         if (tag.isNotEmpty()) appendLine("- tag: $tag")
         appendLine("- verdict: **${verdict.level}**")
         appendLine("- score: ${verdict.score}  (hard=${verdict.hardCount}, soft=${verdict.softCount})")
+        appendLine("- methodology matrix: **${verdict.matrix}**")
+        appendLine("  - geoip axis fired: ${verdict.matrixGeoip}")
+        appendLine("  - direct axis fired: ${verdict.matrixDirect}")
+        appendLine("  - indirect axis fired: ${verdict.matrixIndirect}")
         appendLine()
 
         for (cat in Category.values()) {
