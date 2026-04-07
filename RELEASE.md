@@ -1,12 +1,13 @@
 # Release notes — v0.2.0
 
-Diagnostic Android app that mirrors how Russian banking / anti-fraud SDKs detect a VPN on a phone. Personal tool, no telemetry.
+VPN Detection QA harness for Android. Implements the standard Russian-language anti-fraud methodology for client-side VPN detection (see [`docs/source-methodology.md`](docs/source-methodology.md)) so anti-fraud engineers, security testers, and compliance QA can validate that their detection logic actually triggers on a known-good test device. No telemetry, no analytics, no backend.
 
 ## Artifact
 
 - File: `app/build/outputs/apk/release/app-release.apk`
 - Size: 1.3 MB
 - Package: `net.vpndetector`
+- App label: **VPN Detection QA**
 - Version: 0.2.0
 - minSdk 26 (Android 8) · targetSdk 35 (Android 15)
 
@@ -23,7 +24,7 @@ Run on the APK before installing if you don't trust the source:
 
 ```bash
 sha256sum app-release.apk
-# expected: 84b99c59ddcee8a76f0ede754eaf1232460ccffa576e7ac6549101d5f3d9dadf
+# expected: 7ee8c08ad6fc7473f18f92ba284e44ba43761e07a630948be0ec62401503f9dc
 
 apksigner verify --print-certs app-release.apk
 # expected signer:
