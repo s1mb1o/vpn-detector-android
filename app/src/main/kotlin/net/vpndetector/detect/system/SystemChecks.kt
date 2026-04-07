@@ -27,6 +27,7 @@ import java.net.NetworkInterface
 object SystemChecks {
 
     private val KNOWN_VPN_PACKAGES = listOf(
+        // VPN clients
         "org.amnezia.vpn",
         "com.wireguard.android",
         "org.outline.android.client",
@@ -39,6 +40,16 @@ object SystemChecks {
         "com.surfshark.vpnclient.android",
         "de.blinkt.openvpn",
         "net.openvpn.openvpn",
+        "com.adguard.vpn",
+        // DPI / blocker bypass tools
+        "io.github.romanvht.byedpi",
+        "ru.gildor.coroutines.byedpi",
+        "app.intra",
+        "org.proxydroid",
+        "org.torproject.android",       // Orbot
+        "com.guardianproject.netcipher",
+        // Generic SOCKS / SSH tunnels
+        "com.sshtunnel.ssht",
     )
 
     private val KNOWN_PUBLIC_DNS = mapOf(
@@ -119,7 +130,7 @@ object SystemChecks {
             }
         }
 
-        // 3. tun*/wg*/ppp*/utun*/tap* interfaces enumeration
+        // 3. tun*/wg*/ppp*/utun*/tap*/ipsec* interfaces enumeration
         run {
             val all = try {
                 NetworkInterface.getNetworkInterfaces().toList()
@@ -127,9 +138,7 @@ object SystemChecks {
                 emptyList()
             }
             val flagged = all.filter { ifc ->
-                val n = ifc.name.lowercase()
-                (n.startsWith("tun") || n.startsWith("tap") ||
-                    n.startsWith("wg") || n.startsWith("utun") || n.startsWith("ppp")) &&
+                isTunnelIfaceName(ifc.name) &&
                     runCatching { ifc.isUp }.getOrDefault(false)
             }
             out += Check(
@@ -138,23 +147,23 @@ object SystemChecks {
                 label = "Tunnel interfaces present",
                 value = if (flagged.isEmpty()) "none" else flagged.joinToString { it.name },
                 severity = if (flagged.isNotEmpty()) Severity.HARD else Severity.PASS,
-                explanation = "Any tun/tap/wg/utun/ppp interface that is UP indicates a local VPN.",
+                explanation = "Any tun/tap/wg/utun/ppp/ipsec interface that is UP indicates a local VPN " +
+                    "or IPsec/IKEv2 tunnel client.",
             )
         }
 
         // 4. Active iface name
         run {
             val name = link?.interfaceName ?: "?"
-            val n = name.lowercase()
-            val bad = n.startsWith("tun") || n.startsWith("tap") ||
-                n.startsWith("wg") || n.startsWith("utun") || n.startsWith("ppp")
+            val bad = isTunnelIfaceName(name)
             out += Check(
                 id = "active_iface_name",
                 category = Category.SYSTEM,
                 label = "Active interface name",
                 value = name,
                 severity = if (bad) Severity.HARD else Severity.PASS,
-                explanation = "Active network's interface name. wlan*/rmnet*/ccmni* are normal; tun/wg are VPN.",
+                explanation = "Active network's interface name. wlan*/rmnet*/ccmni* are normal; " +
+                    "tun/wg/utun/ppp/ipsec indicate VPN.",
             )
         }
 
@@ -167,9 +176,8 @@ object SystemChecks {
             val routes = link?.routes.orEmpty()
             val defaultViaTun = routes.any { r ->
                 val isDefault = r.isDefaultRoute || r.destination.toString().let { it == "0.0.0.0/0" || it == "::/0" }
-                val ifc = (r.`interface` ?: link?.interfaceName ?: "").lowercase()
-                isDefault && (ifc.startsWith("tun") || ifc.startsWith("wg") ||
-                    ifc.startsWith("utun") || ifc.startsWith("ppp"))
+                val ifc = r.`interface` ?: link?.interfaceName ?: ""
+                isDefault && isTunnelIfaceName(ifc)
             }
             // Detect WG split-route trick (0.0.0.0/1 + 128.0.0.0/1)
             val wgTrick = routes.any { it.destination.toString() == "0.0.0.0/1" } &&
@@ -394,6 +402,106 @@ object SystemChecks {
             )
         }
 
+        // 19. JVM-level system proxy properties (HTTP / HTTPS / SOCKS).
+        // Methodology §6.4 mentions System.getProperty("http.proxyHost"). These are set
+        // per-process or globally and survive even if LinkProperties.httpProxy is null.
+        run {
+            val keys = listOf(
+                "http.proxyHost", "http.proxyPort",
+                "https.proxyHost", "https.proxyPort",
+                "socksProxyHost", "socksProxyPort",
+            )
+            val pairs = keys.mapNotNull { k ->
+                val v = runCatching { System.getProperty(k) }.getOrNull()
+                if (v.isNullOrBlank()) null else k to v
+            }
+            val anyHost = pairs.any { it.first.endsWith("Host") }
+            out += Check(
+                id = "jvm_proxy",
+                category = Category.SYSTEM,
+                label = "JVM proxy properties",
+                value = if (pairs.isEmpty()) "none" else pairs.joinToString { "${it.first}=${it.second}" },
+                severity = if (anyHost) Severity.HARD else Severity.PASS,
+                explanation = "System.getProperty(http.proxyHost / https.proxyHost / socksProxyHost). " +
+                    "Per-process proxy hosts that LinkProperties.httpProxy does not see.",
+            )
+        }
+
+        // 20. VpnTransportInfo decoding (API 31+).
+        // Methodology §6.4 explicitly mentions inspecting VpnTransportInfo for type, sessionId,
+        // and bypassable. On API 31+ NetworkCapabilities exposes the per-VPN transport info.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val info = caps?.transportInfo
+            val isVpnInfo = info != null && info.javaClass.simpleName == "VpnTransportInfo"
+            val text = if (isVpnInfo) info.toString() else "(none)"
+            out += Check(
+                id = "vpn_transport_info",
+                category = Category.SYSTEM,
+                label = "VpnTransportInfo",
+                value = text.take(200),
+                severity = if (isVpnInfo) Severity.HARD else Severity.PASS,
+                explanation = "NetworkCapabilities.transportInfo on API 31+. When non-null and of type " +
+                    "VpnTransportInfo it exposes the VPN session id, type, and bypassable flag for the active VPN.",
+            )
+        }
+
+        // 21. Routing-table anomaly counts.
+        // Methodology §7.6 lists multiple-default-route, dedicated routes via virtual interfaces,
+        // and missing direct route to ISP gateway as indirect signals.
+        run {
+            val routes = link?.routes.orEmpty()
+            val defaults = routes.filter { it.isDefaultRoute }
+            val viaTunnel = routes.filter { r ->
+                val ifc = r.`interface` ?: link?.interfaceName ?: ""
+                isTunnelIfaceName(ifc)
+            }
+            val details = listOf(
+                DetailEntry("default routes", defaults.size.toString(),
+                    if (defaults.size > 1) Severity.SOFT else Severity.PASS),
+                DetailEntry("routes via tunnel iface", viaTunnel.size.toString(),
+                    if (viaTunnel.isNotEmpty()) Severity.SOFT else Severity.PASS),
+                DetailEntry("total routes", routes.size.toString(), Severity.INFO),
+            )
+            val sev = if (defaults.size > 1 || viaTunnel.isNotEmpty()) Severity.SOFT else Severity.PASS
+            out += Check(
+                id = "route_anomalies",
+                category = Category.SYSTEM,
+                label = "Routing table anomalies",
+                value = "${defaults.size} default · ${viaTunnel.size} via-tunnel · ${routes.size} total",
+                severity = sev,
+                explanation = "Multiple default routes or routes via tun/wg/utun/ppp/ipsec are indirect " +
+                    "signs of split-tunnel / corp VPN / fork VPN setups.",
+                details = details,
+            )
+        }
+
+        // 22. dumpsys vpn_management — Android 12+ active VPN list.
+        // Methodology §7.4 cites this. From a regular uid the system usually denies the call,
+        // but on some OEM ROMs and userdebug builds it returns useful output. Best-effort.
+        run {
+            val (output, ok) = runDumpsys()
+            val pkgRegex = Regex("""(?:Active package name|Active vpn package):\s*(\S+)""")
+            val pkgs = pkgRegex.findAll(output).map { it.groupValues[1] }.toList().distinct()
+            val sev = when {
+                !ok -> Severity.INFO
+                pkgs.isNotEmpty() -> Severity.HARD
+                else -> Severity.PASS
+            }
+            out += Check(
+                id = "dumpsys_vpn",
+                category = Category.SYSTEM,
+                label = "dumpsys vpn_management",
+                value = when {
+                    !ok -> "denied (no DUMP permission, expected on production builds)"
+                    pkgs.isEmpty() -> "no active VPN reported"
+                    else -> pkgs.joinToString()
+                },
+                severity = sev,
+                explanation = "Runtime.exec(dumpsys vpn_management). Lists active VPN packages on Android 12+. " +
+                    "Regular apps usually get denied; on userdebug builds and some OEMs the call succeeds.",
+            )
+        }
+
         // 18. Telegram presence (weak signal — see note in TELEGRAM_PACKAGES doc)
         run {
             val pm = ctx.packageManager
@@ -443,6 +551,31 @@ object SystemChecks {
         }
 
         return out
+    }
+
+    /** Tunnel-interface name match used everywhere we look at iface names. */
+    private fun isTunnelIfaceName(name: String): Boolean {
+        val n = name.lowercase()
+        return n.startsWith("tun") || n.startsWith("tap") || n.startsWith("wg") ||
+            n.startsWith("utun") || n.startsWith("ppp") || n.startsWith("ipsec")
+    }
+
+    /** Best-effort `dumpsys vpn_management` shell-out. Returns (combined output, succeeded). */
+    private fun runDumpsys(): Pair<String, Boolean> = try {
+        val pb = ProcessBuilder("/system/bin/dumpsys", "vpn_management").redirectErrorStream(true)
+        val p = pb.start()
+        val finished = p.waitFor(2, java.util.concurrent.TimeUnit.SECONDS)
+        if (!finished) {
+            p.destroyForcibly()
+            "" to false
+        } else {
+            val out = p.inputStream.bufferedReader().use { it.readText() }
+            // dumpsys returns 0 even on permission denial; treat empty/short output as denied.
+            val ok = out.length > 50 && !out.contains("Permission Denial", ignoreCase = true)
+            out to ok
+        }
+    } catch (e: Exception) {
+        "" to false
     }
 
     /** True iff the user has granted PACKAGE_USAGE_STATS to this app. */
