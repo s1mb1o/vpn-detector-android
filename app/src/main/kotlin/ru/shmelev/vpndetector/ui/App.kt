@@ -11,6 +11,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Router
 import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material.icons.filled.SwapHoriz
+import android.content.Intent
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -21,6 +22,7 @@ import androidx.compose.runtime.Composable
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -47,9 +49,24 @@ fun App(vm: AppViewModel = viewModel()) {
     val backStack by nav.currentBackStackEntryAsState()
     val current by vm.current.collectAsStateWithLifecycle()
     val running by vm.running.collectAsStateWithLifecycle()
+    val ctx = LocalContext.current
 
     Scaffold(
-        topBar = { VerdictBar(current?.verdict) },
+        topBar = {
+            VerdictBar(
+                v = current?.verdict,
+                onShare = current?.let { run ->
+                    {
+                        val send = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_SUBJECT, "vpn-detector run · ${run.verdict.level}")
+                            putExtra(Intent.EXTRA_TEXT, run.toShareText())
+                        }
+                        ctx.startActivity(Intent.createChooser(send, "Share results"))
+                    }
+                },
+            )
+        },
         bottomBar = {
             NavigationBar {
                 TABS.forEach { tab ->
