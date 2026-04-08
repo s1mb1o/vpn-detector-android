@@ -58,6 +58,28 @@ private val CDN_KEYWORDS = listOf(
  *  proxy or middlebox is rewriting the request in flight. Methodology §10.2. */
 private val PROXY_HEADER_NAMES = listOf("via", "x-forwarded-for", "forwarded", "x-real-ip")
 
+/**
+ * Known-legitimate service-side header values. Methodology §10.2 explicitly warns that
+ * services and CDNs may legitimately add these headers themselves, so a match here must
+ * be whitelisted to avoid false positives.
+ *
+ * Each entry is a substring (case-insensitive) that, when found in a response header
+ * *value*, is treated as the service's own infrastructure and downgraded to INFO.
+ *
+ * - "1.1 google"  Google Cloud Load Balancer adds this to every response it proxies
+ *                 (e.g. ipinfo.io runs on GCP and its responses carry `Via: 1.1 google`).
+ * - "varnish"     Fastly / self-hosted Varnish caches.
+ * - "cloudfront"  AWS CloudFront.
+ * - "akamaighost" Akamai.
+ * - "nginx"       Service running its own nginx reverse proxy — not a MITM on the path.
+ * - "cloudflare"  Cloudflare's own edge.
+ * - "envoy"       Envoy-based service meshes.
+ */
+private val LEGITIMATE_SERVICE_HEADER_MARKERS = listOf(
+    "1.1 google", "varnish", "cloudfront", "akamaighost", "akamai",
+    "nginx", "cloudflare", "envoy", "apache", "haproxy",
+)
+
 object GeoIpProbes {
 
     suspend fun runAll(): List<ProbeResult> = withContext(Dispatchers.IO) {
@@ -218,17 +240,39 @@ object GeoIpProbes {
 
         // Transparent proxy headers (methodology §10.2). Forwarding-style HTTP headers added
         // to a probe response by an in-flight middlebox. Since we connect directly to the
-        // GeoIP services with no proxy, the presence of any of these headers means a
-        // transparent proxy on the path is rewriting the request.
+        // GeoIP services with no proxy, an UNKNOWN header value would mean a transparent
+        // proxy on the path is rewriting the request. But the methodology itself warns:
+        // 'сам сервис или CDN также может легитимно формировать часть таких заголовков'.
+        // Real-world example: ipinfo.io runs on Google Cloud Load Balancer which adds
+        // `Via: 1.1 google` to every response — that's the service's own infrastructure,
+        // not a MITM on the user's path. We whitelist known service-side markers and
+        // only flag header values that fall outside the whitelist.
+        fun isLegitimateServiceHeader(value: String): Boolean =
+            LEGITIMATE_SERVICE_HEADER_MARKERS.any { value.contains(it, ignoreCase = true) }
+
         val headerHits = results.flatMap { p ->
-            p.proxyHeaders.map { (k, v) -> Triple(p.provider, k, v) }
+            p.proxyHeaders
+                .filter { (_, v) -> !isLegitimateServiceHeader(v) }
+                .map { (k, v) -> Triple(p.provider, k, v) }
         }
         val headerDetails = results.map { p ->
             val hits = p.proxyHeaders
+            val unknownHits = hits.filter { (_, v) -> !isLegitimateServiceHeader(v) }
+            val knownHits = hits.filter { (_, v) -> isLegitimateServiceHeader(v) }
             val (reported, sev) = when {
                 p.error != null -> "ERROR: ${p.error}" to Severity.INFO
                 hits.isEmpty() -> "no forwarding headers" to Severity.PASS
-                else -> hits.entries.joinToString { "${it.key}=${it.value}" } to Severity.HARD
+                unknownHits.isNotEmpty() -> {
+                    val u = unknownHits.entries.joinToString { "${it.key}=${it.value}" }
+                    val k = if (knownHits.isEmpty()) "" else " (also: " + knownHits.entries
+                        .joinToString { "${it.key}=${it.value}" } + " — service-side, ignored)"
+                    "$u$k" to Severity.HARD
+                }
+                else -> {
+                    // Only known service-side markers: ipinfo on GCLB, etc. Not a path proxy.
+                    knownHits.entries.joinToString { "${it.key}=${it.value}" } +
+                        "  (service-side, whitelisted)" to Severity.PASS
+                }
             }
             DetailEntry(source = p.provider, reported = reported, verdict = sev)
         }
@@ -236,12 +280,13 @@ object GeoIpProbes {
             id = "transparent_proxy_headers",
             category = Category.GEOIP,
             label = "Transparent proxy headers",
-            value = if (headerHits.isEmpty()) "none" else "${headerHits.size} hits",
+            value = if (headerHits.isEmpty()) "none (or all whitelisted)" else "${headerHits.size} unknown hits",
             severity = if (headerHits.isNotEmpty()) Severity.HARD else Severity.PASS,
             explanation = "Methodology §10.2 — Via / X-Forwarded-For / Forwarded headers added " +
-                "to probe responses indicate a transparent proxy or middlebox is rewriting traffic " +
-                "in flight. We connect to the GeoIP services with Proxy.NO_PROXY, so these headers " +
-                "should never appear on a clean path.",
+                "to probe responses indicate a transparent proxy on the path. Known service-side " +
+                "infrastructure (Google Cloud LB 'via=1.1 google', Fastly varnish, CloudFront, " +
+                "Akamai, nginx, Cloudflare, Envoy, etc.) is whitelisted because the methodology " +
+                "itself warns those are legitimately added by the service or its CDN.",
             details = headerDetails,
         )
 
