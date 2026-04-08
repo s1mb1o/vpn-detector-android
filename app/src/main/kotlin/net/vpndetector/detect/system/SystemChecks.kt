@@ -27,29 +27,59 @@ import java.net.NetworkInterface
 object SystemChecks {
 
     private val KNOWN_VPN_PACKAGES = listOf(
-        // VPN clients
-        "org.amnezia.vpn",
+        // Generic commercial VPN clients
         "com.wireguard.android",
-        "org.outline.android.client",
         "ch.protonvpn.android",
         "net.mullvad.mullvadvpn",
         "com.nordvpn.android",
-        "com.v2ray.ang",
-        "com.github.shadowsocks",
         "com.expressvpn.vpn",
         "com.surfshark.vpnclient.android",
         "de.blinkt.openvpn",
         "net.openvpn.openvpn",
         "com.adguard.vpn",
-        // DPI / blocker bypass tools
-        "io.github.romanvht.byedpi",
-        "ru.gildor.coroutines.byedpi",
+        // DPI / blocker bypass tools (less specific to RKN)
         "app.intra",
         "org.proxydroid",
         "org.torproject.android",       // Orbot
         "com.guardianproject.netcipher",
         // Generic SOCKS / SSH tunnels
         "com.sshtunnel.ssht",
+    )
+
+    /**
+     * Anti-RKN / anti-detection toolchain. These are not generic VPN clients — they are
+     * **specifically designed** to defeat the same detection methodology this app implements
+     * (AmneziaWG = WireGuard with junk-packet padding to bypass DPI fingerprinting; Xray /
+     * VLESS-Reality = TLS-mimicking transport designed for RU; NekoBox / v2rayNG / Shadowsocks
+     * = SOCKS-over-obfuscated-transport stacks; ByeDPI = TSPU bypass utility).
+     *
+     * Presence of any of these is a HARD signal: they have no legitimate "I just need a VPN
+     * for work" use case the way ProtonVPN does. The user installed them for one reason.
+     */
+    private val ANTI_DETECTION_PACKAGES = listOf(
+        // AmneziaWG (DPI-resistant WireGuard fork with junk-packet obfuscation)
+        "org.amnezia.vpn",
+        // Xray / VLESS / V2Ray ecosystem (Reality-transport, designed for anti-DPI)
+        "com.v2ray.ang",                        // v2rayNG
+        "com.xray.ang",
+        "io.nekohasekai.sagernet",              // SagerNet
+        "moe.matsuri.lite",                     // Matsuri
+        "io.nekohasekai.sfa",                   // sing-box for Android
+        "com.github.kr328.clash",               // Clash for Android
+        "com.github.metacubex.clash.meta",      // Clash Meta / Mihomo
+        "com.github.shadowsocks",               // shadowsocks-android
+        "com.github.shadowsocksrr.android",     // ShadowsocksR
+        "free.shadowsocks.proxy",
+        // Outline (Shadowsocks-based, popular in RU bypass scene)
+        "org.outline.android.client",
+        "org.outline.go",
+        // ByeDPI / GoodByeDPI Android forks (TSPU bypass)
+        "io.github.romanvht.byedpi",
+        "ru.gildor.coroutines.byedpi",
+        "io.github.dovecoteescapee.byedpi",
+        // NekoBox / NekoRay (Xray/sing-box GUI)
+        "moe.nb4a",
+        "com.nekohasekai.nekoray",
     )
 
     private val KNOWN_PUBLIC_DNS = mapOf(
@@ -267,7 +297,7 @@ object SystemChecks {
             )
         }
 
-        // 11. Installed VPN apps
+        // 11. Installed generic VPN apps (SOFT — could be corp VPN, work VPN, paid commercial)
         run {
             val pm = ctx.packageManager
             val installed = KNOWN_VPN_PACKAGES.filter { pkg ->
@@ -281,7 +311,45 @@ object SystemChecks {
                 label = "Known VPN clients installed",
                 value = if (installed.isEmpty()) "none" else installed.joinToString(),
                 severity = if (installed.isNotEmpty()) Severity.SOFT else Severity.PASS,
-                explanation = "PackageManager scan for popular VPN client package names.",
+                explanation = "PackageManager scan for generic commercial VPN client package names. " +
+                    "SOFT because these have legitimate work / privacy uses.",
+            )
+        }
+
+        // 11b. Anti-detection toolchain (HARD — purpose-built to defeat the methodology)
+        run {
+            val pm = ctx.packageManager
+            val installed = ANTI_DETECTION_PACKAGES.filter { pkg ->
+                runCatching {
+                    pm.getPackageInfo(pkg, 0); true
+                }.getOrDefault(false)
+            }
+            val details = installed.map { pkg ->
+                val label = when {
+                    pkg == "org.amnezia.vpn" -> "AmneziaWG (DPI-resistant WG fork)"
+                    pkg.contains("v2ray") || pkg.contains("xray") -> "Xray / VLESS-Reality client"
+                    pkg.contains("sagernet") || pkg.contains("nekohasekai") || pkg.contains("matsuri") ||
+                        pkg.contains("nb4a") || pkg.contains("nekoray") -> "NekoBox / sing-box / SagerNet"
+                    pkg.contains("clash") || pkg.contains("mihomo") -> "Clash / Mihomo"
+                    pkg.contains("shadowsocks") -> "Shadowsocks(R)"
+                    pkg.contains("outline") -> "Outline (Shadowsocks-based)"
+                    pkg.contains("byedpi") -> "ByeDPI (TSPU bypass)"
+                    else -> "anti-detection tool"
+                }
+                DetailEntry(source = pkg, reported = label, verdict = Severity.HARD)
+            }
+            out += Check(
+                id = "anti_detection_apps",
+                category = Category.SYSTEM,
+                label = "Anti-detection toolchain installed",
+                value = if (installed.isEmpty()) "none" else "${installed.size}: ${installed.joinToString()}",
+                severity = if (installed.isNotEmpty()) Severity.HARD else Severity.PASS,
+                explanation = "Packages purpose-built to defeat client-side VPN detection: AmneziaWG " +
+                    "(WG with junk-packet obfuscation), Xray/VLESS-Reality (TLS-mimicking transport), " +
+                    "NekoBox / sing-box / SagerNet (Xray GUIs), Clash/Mihomo, Shadowsocks(R), Outline, " +
+                    "ByeDPI (TSPU bypass). Unlike generic VPN clients these have no 'I need a VPN for " +
+                    "work' use case — installation implies intent to bypass anti-VPN measures.",
+                details = details,
             )
         }
 

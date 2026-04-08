@@ -36,7 +36,7 @@ object VerdictAggregator {
     private val DIRECT_IDS = setOf(
         "transport_vpn", "cap_not_vpn", "tun_iface", "active_iface_name",
         "default_route_tun", "http_proxy", "jvm_proxy", "vpn_transport_info",
-        "dumpsys_vpn", "local_proxy_listeners",
+        "dumpsys_vpn", "local_proxy_listeners", "anti_detection_apps",
     )
 
     /** Indirect / supporting signals. Methodology §7. */
