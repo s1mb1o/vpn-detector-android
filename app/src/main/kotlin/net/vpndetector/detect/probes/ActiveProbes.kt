@@ -39,6 +39,11 @@ object ActiveProbes {
         val ru = median(ruResults)
         val foreign = median(foreignResults)
 
+        // Latency checks are methodology §10.1 "дополнительные методы" — supplementary.
+        // They corroborate other signals, they do not stand alone. On mobile cellular
+        // the absolute numbers are noisy (bad RSRP, handoffs, carrier transit variance)
+        // and foreign CDNs can legitimately be closer than RU origin servers, so we cap
+        // these checks at SOFT and loosen the "slow RU" threshold.
         out += Check(
             id = "lat_ru",
             category = Category.PROBES,
@@ -46,13 +51,13 @@ object ActiveProbes {
             value = if (ru < 0) "n/a" else "$ru ms",
             severity = when {
                 ru < 0 -> Severity.INFO
-                ru > 200 -> Severity.HARD
-                ru > 100 -> Severity.SOFT
+                ru > 400 -> Severity.SOFT      // was 200=HARD; cellular can easily hit 200
                 else -> Severity.PASS
             },
-            explanation = "yandex.ru / mail.ru / vk.com. >200ms suggests transit through a foreign exit and back. " +
-                "Tap to see per-host latency and identify which RU anchor is slow.",
-            details = ruResults.map { it.toDetail(slowMs = 200, warnMs = 100) },
+            explanation = "yandex.ru / mail.ru / gosuslugi.ru. Supplementary signal (methodology §10.1). " +
+                "Cellular networks have high baseline latency, so this is capped at SOFT and only fires " +
+                "above 400ms. Tap to see per-host latency.",
+            details = ruResults.map { it.toDetail(slowMs = 400, warnMs = 200) },
         )
 
         out += Check(
@@ -62,13 +67,13 @@ object ActiveProbes {
             value = if (foreign < 0) "n/a" else "$foreign ms",
             severity = when {
                 foreign < 0 -> Severity.INFO
-                foreign < 30 -> Severity.HARD
-                foreign < 80 -> Severity.SOFT
+                foreign < 20 -> Severity.SOFT  // was <30=HARD; modern CDNs + operator peering often hit 25-30ms
                 else -> Severity.PASS
             },
-            explanation = "google / cloudflare / wikipedia. <30ms from a RU device = foreign exit (VPN). " +
-                "Tap to see per-host latency.",
-            details = foreignResults.map { it.toForeignDetail(fastMs = 30, warnMs = 80) },
+            explanation = "google / cloudflare / apple. Supplementary signal (methodology §10.1). " +
+                "Modern CDNs have PoPs close to RU mobile operators, so foreign latency alone is weak. " +
+                "Capped at SOFT and only fires below 20ms. Tap to see per-host latency.",
+            details = foreignResults.map { it.toForeignDetail(fastMs = 20, warnMs = 50) },
         )
 
         out += Check(
@@ -77,13 +82,21 @@ object ActiveProbes {
             label = "RU vs foreign latency ordering",
             value = if (ru < 0 || foreign < 0) "n/a"
                 else if (ru < foreign) "RU faster ✓ ($ru < $foreign ms)"
-                else "foreign faster ✗ ($foreign < $ru ms)",
+                else "foreign faster ($foreign < $ru ms)",
             severity = when {
                 ru < 0 || foreign < 0 -> Severity.INFO
                 ru < foreign -> Severity.PASS
-                else -> Severity.HARD
+                // Ordering is only a weak signal — RU origin servers often sit in RU datacenters
+                // that are further (latency-wise) than the closest Google/Cloudflare PoP. Mark INFO,
+                // not a scoring contributor, because the methodology §10.1 treats SNITCH as
+                // supplementary ('дополнительные методы') that corroborates GeoIP rather than
+                // standing alone.
+                else -> Severity.INFO
             },
-            explanation = "From a real RU connection RU anchors must be faster than foreign anchors.",
+            explanation = "From a real RU connection RU anchors are often faster than foreign, but modern " +
+                "CDNs (Google, Cloudflare) frequently have PoPs closer to the operator's core than the " +
+                "RU origin servers themselves. Reversed ordering alone does not indicate VPN; downgraded to " +
+                "INFO. Tap to see per-host measurements.",
             details = (ruResults.map { it.copy(group = "RU") } + foreignResults.map { it.copy(group = "foreign") })
                 .map { DetailEntry(source = "[${it.group}] ${it.host}", reported = it.reportedString(), verdict = Severity.INFO) },
         )
