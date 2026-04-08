@@ -41,11 +41,32 @@ A signed release APK is produced by `./gradlew :app:assembleRelease` (requires `
 
 [`SMOKE_TESTS.md`](SMOKE_TESTS.md) — manual scenarios to run on a test device after each tweak to the detection rules.
 
+## Documentation
+
+The project ships with two parallel documentation trees:
+
+- [`docs/specs/`](docs/specs/) — formal specifications of every detection rule implemented in the app:
+  - [`01_signal-catalog.md`](docs/specs/01_signal-catalog.md) — every Check, FAIL/WARN/PASS conditions
+  - [`02_architecture.md`](docs/specs/02_architecture.md) — engine + UI + data flow
+  - [`03_scoring.md`](docs/specs/03_scoring.md) — VerdictAggregator weights and thresholds
+  - [`04_proposed-checks.md`](docs/specs/04_proposed-checks.md) — bypass-direction checks (DNS, blocked-domain, traceroute)
+  - [`05_metrics-review.md`](docs/specs/05_metrics-review.md) — per-check audit, methodology mapping, false positives
+  - [`06_hiding-strategies.md`](docs/specs/06_hiding-strategies.md) — operator-side advice on lowering the score
+- [`docs/knowledge-base/`](docs/knowledge-base/) — research and operator know-how derived from real-device testing:
+  - [`README.md`](docs/knowledge-base/README.md) — index and reading order
+  - [`threat-model.md`](docs/knowledge-base/threat-model.md) — what we defend against, why
+  - [`adr-001-whitelist-routing.md`](docs/knowledge-base/adr-001-whitelist-routing.md) — architecture decision: invert MikroTik routing default
+  - [`router-blueprint.md`](docs/knowledge-base/router-blueprint.md) — actual L3 topology of the home MikroTik with real traceroute data
+  - [`operator-playbook.md`](docs/knowledge-base/operator-playbook.md) — pragmatic step-by-step recipes per operating mode
+
+Plus: [`docs/source-methodology.md`](docs/source-methodology.md) cites the published methodology this project mirrors, and [`ResearchLog.md`](ResearchLog.md) records ad-hoc API research and on-device validation runs.
+
 ## Privacy
 
 The app contains no analytics, no telemetry, no third-party tracking SDKs. The only outbound traffic is the diagnostic probes themselves; full inventory in [`PRIVACY.md`](PRIVACY.md).
 
-## Related
+## Related (external to this repo)
 
 - Plan: `~/.claude/plans/misty-doodling-candle.md`
-- Methodology research notes: `~/Projects/10_admin/mikrotik/docs/rkn/`
+- Methodology research notes (authoritative copy): `~/Projects/10_admin/mikrotik/docs/rkn/`
+- MikroTik configs and ChangeLog: `~/Projects/10_admin/mikrotik/`
