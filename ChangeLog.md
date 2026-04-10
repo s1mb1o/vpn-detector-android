@@ -1,5 +1,27 @@
 # ChangeLog
 
+## 2026-04-10 (release v0.5.0) — Anti-detection toolchain, cellular & GeoIP fixes
+
+New checks (System tab):
+- `anti_detection_toolchain` — detects rooted/Xposed/Frida/Magisk
+  environments commonly used to hide VPN presence from apps. Severity
+  HARD when any toolchain component is found.
+
+Fixes:
+- GeoIP: whitelist known service-side proxy header markers to reduce
+  false positives from CDN-injected headers.
+- Probes: demote latency-based checks on cellular networks where high
+  jitter causes spurious SOFT/HARD signals.
+
+Docs:
+- `docs/knowledge-base/` — consolidated research and operator know-how
+  (threat model, router blueprint, operator playbook, ADR-001
+  whitelist routing).
+- `docs/specs/06_hiding-strategies.md` — how to lower the detection
+  score on a real device.
+
+versionCode 4 → 5, versionName 0.4.0 → 0.5.0.
+
 ## 2026-04-07 (release v0.4.0) — Methodology v2 coverage pass
 
 Closes most of the gap between our catalog and the published anti-fraud
