@@ -19,7 +19,7 @@ Four categories, full catalog in [`docs/specs/01_signal-catalog.md`](docs/specs/
 - **System** — `TRANSPORT_VPN`, `NET_CAPABILITY_NOT_VPN`, tunnel interfaces, default route via tunnel, proxies, `VpnTransportInfo`, DNS / Private DNS, MTU, route anomalies, installed VPN and anti-detection apps, root indicators, Telegram presence.
 - **GeoIP** — parallel external-IP probes (ipify, ipinfo, ip-api, ifconfig.co, myip.com, Cloudflare trace, Yandex IPv4/IPv6, ifconfig.me, AWS checkip, Mail.ru, IPv6 geo lookup, DNS-resolver egress); datacenter ASN classification; reputation flags; probe disagreement.
 - **Consistency** — SIM / network / MCC / carrier / locale / timezone cross-checks against the external IP, plus IPv4-vs-IPv6 exit split and DNS-resolver-egress vs HTTP-exit mismatch. The decisive category for the methodology.
-- **Probes** — latency anchors, STUN, traceroute, local loopback listeners, captive portal.
+- **Probes** — latency anchors, STUN, traceroute, local loopback listeners, captive portal, plus `HOST_REACHABILITY`-parity checks: the exact five hosts from the reference anti-fraud pipeline and a raw-socket first-success IP collector.
 
 Each row reports raw value, severity (PASS / INFO / WARN / FAIL) and a one-line explanation. Tap a row to see the per-source breakdown — for each multi-source check, the dialog lists exactly which probe / anchor / package returned what, so a tester can isolate which specific input drove the verdict.
 
@@ -52,6 +52,7 @@ The project ships with two parallel documentation trees:
   - [`04_proposed-checks.md`](docs/specs/04_proposed-checks.md) — bypass-direction checks (DNS, blocked-domain, traceroute)
   - [`05_metrics-review.md`](docs/specs/05_metrics-review.md) — per-check audit, methodology mapping, false positives
   - [`06_hiding-strategies.md`](docs/specs/06_hiding-strategies.md) — operator-side advice on lowering the score
+  - [`07_host-reachability.md`](docs/specs/07_host-reachability.md) — `HOST_REACHABILITY` parity checks
 - [`docs/knowledge-base/`](docs/knowledge-base/) — research and operator know-how derived from real-device testing:
   - [`README.md`](docs/knowledge-base/README.md) — index and reading order
   - [`threat-model.md`](docs/knowledge-base/threat-model.md) — what we defend against, why

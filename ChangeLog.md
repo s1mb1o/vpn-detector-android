@@ -1,16 +1,23 @@
 # ChangeLog
 
-## 2026-04-15 — Multi-target traceroute (3 anchors)
+## 2026-04-18 — Documented HOST_REACHABILITY research review and parity gaps
 
-`router_egress_country` now probes three anchors in parallel:
-`1.1.1.1` (Cloudflare), `8.8.8.8` (Google DNS), `77.88.8.8`
-(Yandex DNS, RU). Aggregate verdict is worst across targets;
-per-target hop detail is grouped in the expanded view.
+Reviewed a public write-up of a reference RU-messenger `HOST_REACHABILITY`
+anti-fraud telemetry pipeline (source-app build 26.12.1 as of 2026-04)
+and compared its claimed VPN/IP/host checks with the current Android app.
 
-Split/whitelist-routing setups (RU destinations local, foreign
-tunnelled) are now directly visible — the RU target stays PASS while
-the foreign targets go HARD. Previously a single 1.1.1.1 target
-couldn't distinguish "full VPN" from "whitelist routing".
+- Added a new ResearchLog entry summarizing what the research shows
+  reliably: six IP endpoints, five active host-reachability targets,
+  foreground trigger, payload shape, retry queue, and call-time VPN UI.
+- Recorded the main caveat: the research does not show the internals
+  of the `vpn` bit itself, only the call site. The safest interpretation
+  remains that the reference app uses the standard Android local-VPN
+  signal (`TRANSPORT_VPN`), with the real value coming from server-side
+  correlation of IP + operator + host reachability + account context.
+- Recorded the parity gap list for a future "host-reachability mode":
+  exact five-host reachability, exact six-endpoint first-success IP
+  collector, optional raw-socket probing, and
+  `HOST_REACHABILITY`-shaped payload export.
 
 ## 2026-04-15 — Router-VPN signals: v4/v6 split, DNS leak, STUN
 
@@ -41,6 +48,18 @@ Supporting changes:
   — they describe different egresses by design and would otherwise
   trip those checks spuriously. Same fix removes a pre-existing
   false-positive where `yandex-v6` counted against v4 IP agreement.
+
+## 2026-04-15 — Multi-target traceroute + additional GeoIP probes
+
+`router_egress_country` now probes three anchors in parallel:
+`1.1.1.1` (Cloudflare), `8.8.8.8` (Google DNS), `77.88.8.8`
+(Yandex DNS, RU). Aggregate verdict is worst across targets;
+per-target hop detail is grouped in the expanded view.
+
+Split/whitelist-routing setups (RU destinations local, foreign
+tunnelled) are now directly visible — the RU target stays PASS while
+the foreign targets go HARD. Previously a single 1.1.1.1 target
+couldn't distinguish "full VPN" from "whitelist routing".
 
 ## 2026-04-15 — Additional GeoIP probes
 

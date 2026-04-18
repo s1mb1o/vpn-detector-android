@@ -12,9 +12,10 @@
 ## What leaves the device, and to whom
 
 Tapping **Run all checks** sends the diagnostic probes themselves. That
-includes regular HTTP requests, DNS resolution, UDP STUN, and
-`/system/bin/ping` for traceroute. Your exit IP **is** the measurement.
-There is no analytics or backend beyond those probes.
+includes regular HTTP requests, DNS resolution, UDP STUN, `/system/bin/ping`
+for traceroute, and a small raw-socket reference-parity collector. Your
+exit IP **is** the measurement. There is no analytics or backend beyond
+those probes.
 
 | Endpoint | Purpose |
 |---|---|
@@ -24,11 +25,12 @@ There is no analytics or backend beyond those probes.
 | `ifconfig.co` | IP + ASN + timezone |
 | `api.myip.com` | IP + country |
 | `www.cloudflare.com/cdn-cgi/trace` | Cloudflare WARP detection |
-| `ipv4-internet.yandex.net`, `ipv6-internet.yandex.net` | additional external IP endpoints |
-| `ifconfig.me`, `checkip.amazonaws.com`, `ip.mail.ru` | additional external IP endpoints |
+| `ipv4-internet.yandex.net`, `ipv6-internet.yandex.net` | additional external IP endpoints (reference parity) |
+| `ifconfig.me`, `checkip.amazonaws.com`, `ip.mail.ru` | additional external IP endpoints (reference parity) |
 | `whoami.akamai.net` | DNS resolver egress fingerprint |
 | `yandex.ru`, `mail.ru`, `gosuslugi.ru` | RU latency anchors (HEAD) |
 | `google.com`, `cloudflare.com`, `apple.com` | foreign latency anchors (HEAD) |
+| `api.oneme.ru`, `gstatic.com`, `mtalk.google.com`, `calls.okcdn.ru`, `gosuslugi.ru` | `HOST_REACHABILITY` parity checks (raw TCP/TLS reachability) |
 | `connectivitycheck.gstatic.com` | captive-portal probe |
 | `stun.l.google.com:19302` | STUN mapped-address probe |
 | `1.1.1.1`, `8.8.8.8`, `77.88.8.8` | traceroute anchors via `/system/bin/ping -t N` |
@@ -41,6 +43,14 @@ These services will log your exit IP, the timestamp, and possibly an HTTP
 - does not include any persistent device identifier
 - does not transmit any request body — all calls are GET / HEAD
 - runs nothing in the background; nothing is sent unless you tap the FAB
+
+The reference-parity raw-socket collector:
+
+- uses `java.net.Socket` / `SSLSocket`, not OkHttp
+- sends a single HTTP `GET` and closes the connection
+- does not carry cookies, device IDs, or request bodies
+- exists only to mirror the transport style documented in the public
+  anti-fraud research
 
 ## Permissions
 

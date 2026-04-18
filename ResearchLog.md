@@ -1,5 +1,124 @@
 # ResearchLog
 
+## 2026-04-18 (HOST_REACHABILITY research review)
+
+### Source under review
+
+- Public RU technical write-up on a reference RU-messenger anti-fraud
+  telemetry pipeline (`HOST_REACHABILITY` collector, IP discovery, VPN
+  bit, state-service reachability checks).
+- Publication date on page: `2026-04-12`
+- Reference-app build stated by the author: `26.12.1`
+
+### What the article shows reliably
+
+- On foreground/open, the reference app runs a `HOST_REACHABILITY` pipeline and uploads a payload containing:
+  - `hosts` reachability booleans
+  - `operator`
+  - `connection_type`
+  - `ip`
+  - `vpn`
+- Active reachability host set shown in the article:
+  - `api.oneme.ru`
+  - `gstatic.com`
+  - `calls.okcdn.ru`
+  - `gosuslugi.ru`
+  - `mtalk.google.com`
+- IP-discovery endpoints shown in the article:
+  - `ipv4-internet.yandex.net`
+  - `ipv6-internet.yandex.net`
+  - `ifconfig.me`
+  - `api.ipify.org`
+  - `checkip.amazonaws.com`
+  - `ip.mail.ru`
+- The article also shows:
+  - randomization of the IP-service order (`Collections.shuffle`)
+  - first-success-wins semantics for IP discovery
+  - durable retry / local queueing for telemetry delivery
+  - call-time UI/analytics state for "VPN detected" (`VpnPanelWidget`, `BAD_CONNECTION_ALERT`)
+  - dormant Telegram / WhatsApp reachability constants (`main.telegram.org`, `mmg.whatsapp.net`) that are not in the active check list
+
+### What the article does NOT prove cleanly
+
+- The exact implementation of the `vpn` bit is not shown. The post only shows the call site:
+  - `if (((nc4) b19Var.getValue()).e()) { ro9Var.put("vpn", 1); }`
+- Therefore, "how the reference app detects VPN" in this article is partly inference.
+- The strongest corroboration we already have is an older local analysis
+  of an earlier build that found the canonical getter to be:
+  - `NetworkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN)`
+- Safest conclusion:
+  - the client-side VPN flag is probably still a standard Android local-VPN signal
+  - the operationally important part is the surrounding telemetry correlation: external IP, host reachability, operator, connection type, timestamp, account binding
+
+### Comparison with this app
+
+Our app already exceeds the article's likely client-side VPN detection depth in several areas:
+
+- Direct Android VPN/proxy signals:
+  - `TRANSPORT_VPN`
+  - `NET_CAPABILITY_NOT_VPN`
+  - tunnel interface enumeration (`tun*`, `wg*`, `ppp*`, `ipsec*`)
+  - active interface name
+  - default route via tunnel / WireGuard split-route signature
+  - HTTP proxy and JVM proxy properties
+  - `VpnTransportInfo`
+  - `dumpsys vpn_management`
+- Indirect on-device signals:
+  - public DNS / Private DNS
+  - always-on VPN
+  - installed VPN and anti-detection toolchain packages
+  - MTU and route anomalies
+  - Telegram presence
+- Cross-checks and network probes beyond the article:
+  - ASN / hosting / reputation classification
+  - SIM / MCC / carrier / locale / timezone consistency
+  - RU-apps fingerprint
+  - IPv4-vs-IPv6 exit split
+  - DNS-resolver-egress vs HTTP-exit mismatch
+  - STUN mapped address vs HTTP exit
+  - multi-target traceroute for router-side VPN detection
+  - transparent proxy header detection
+
+### Gaps if the goal is exact reference fidelity
+
+If the goal is "mirror the reference pipeline specifically", not merely "detect VPN better", the main missing pieces are:
+
+1. Exact `HOST_REACHABILITY` host set and per-host boolean check
+   - We currently probe generic RU/foreign anchors for latency, not the reference five concrete hosts.
+
+2. Exact reference IP-selection semantics
+   - We run all probes in parallel and keep the full disagreement matrix.
+   - The reference appears to shuffle six endpoints and keep the first successful answer.
+
+3. Raw-socket IP probe mode
+   - The article claims the reference uses `java.net.Socket` rather than OkHttp for the IP check path.
+   - Our probes use OkHttp, which is better for diagnostics but not identical under proxy/MITM conditions.
+
+4. Foreground trigger semantics
+   - Our app runs on explicit user action.
+   - The reference appears to trigger on app foreground when the feature flag is enabled.
+   - Intentionally excluded from parity scope for this project.
+
+5. Reference-shaped payload export / replay
+   - We do not currently construct or export a diagnostic object equivalent to:
+     `HOST_REACHABILITY { hosts, operator, connection_type, ip, vpn }`
+
+6. Call-time VPN-warning modeling
+   - No equivalent of the in-call VPN-warning UI / analytics events
+   - Useful only if we want parity with reference behavior during calls
+
+### Recommendation
+
+- If the product goal is "best-effort anti-fraud / anti-VPN detector", current coverage is already broader than the article.
+- If the product goal is "reference emulator / oracle", add a dedicated parity mode:
+  - exact five-host reachability row
+  - exact six-endpoint IP collector with first-success-wins and optional shuffle
+  - optional raw-socket collector implementation
+  - exportable `HOST_REACHABILITY`-shaped JSON payload for comparison
+- Lowest-value additions:
+  - dormant messenger-reachability domains from the article
+  - guaranteed-delivery queueing (useful for telemetry reproduction, not for detection quality)
+
 ## 2026-04-07 (proposed signals — research)
 
 ### 1. Blocked-domain HTTP reachability

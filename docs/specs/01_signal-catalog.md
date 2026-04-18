@@ -73,7 +73,7 @@ Source: `detect/consistency/ConsistencyChecks.kt`. Cross-checks local context ag
 
 ## Tab 4 — Probes (active network behavior)
 
-Source: `detect/probes/ActiveProbes.kt`, `Traceroute.kt`, `StunProbe.kt`, `LocalListenerProbe.kt`.
+Source: `detect/probes/ActiveProbes.kt`, `Traceroute.kt`, `StunProbe.kt`, `LocalListenerProbe.kt`, `HostReachabilityProbes.kt`.
 
 | ID | Method | FAIL when | WARN when | PASS when | Severity |
 |---|---|---|---|---|---|
@@ -86,6 +86,8 @@ Source: `detect/probes/ActiveProbes.kt`, `Traceroute.kt`, `StunProbe.kt`, `Local
 | `stun_mapped_vs_exit` | STUN UDP mapped address vs HTTP exit | mismatch | — | match | HARD |
 | `router_egress_country` | Multi-target traceroute to Cloudflare / Google / Yandex DNS | any target's first public hop country differs from SIM country | — | all resolvable targets match SIM country | HARD/PASS |
 | `local_proxy_listeners` | TCP-connect to loopback proxy ports | — | any listener open | none open | SOFT/PASS |
+| `ref_ip_first_success` | Reference raw-socket first-success IP collector | — | winner IP not seen by the parallel probe set | winner IP seen by the parallel probe set | INFO/SOFT |
+| `ref_host_reachability` | HOST_REACHABILITY five-host fingerprint | — | per-host failures appear in details only | diagnostic only | INFO |
 
 ## Adding a new rule
 

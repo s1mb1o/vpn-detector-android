@@ -19,7 +19,7 @@ detect/              ← pure logic, no Android Compose deps
  ├ system/           ← SystemChecks — passive on-device signals
  ├ geoip/            ← GeoIpProbes — external-IP / ASN / DNS-egress probes + derive()
  ├ consistency/      ← ConsistencyChecks — cross-checks local vs GeoIP
- └ probes/           ← ActiveProbes, LocalListenerProbe, StunProbe, Traceroute
+ └ probes/           ← ActiveProbes, HostReachabilityProbes, LocalListenerProbe, StunProbe, Traceroute
 
 data/                ← persistence
  ├ RunRepository     ← DataStore-Preferences, last 50 runs as JSON list
@@ -27,6 +27,7 @@ data/                ← persistence
 
 net/
  ├ HttpClient        ← OkHttp factory: Proxy.NO_PROXY (no double proxy), 4s timeouts
+ ├ RawSocketHttp     ← low-level Socket / SSLSocket GET + TCP reachability
  └ Json              ← kotlinx.serialization Json with ignoreUnknownKeys
 ```
 
@@ -36,6 +37,7 @@ net/
                           ┌─ SystemChecks (sync)
 DetectorEngine.runAll() ─┼─ GeoIpProbes (suspend, IO) ──┐
                           ├─ ActiveProbes (suspend, IO) │
+                          ├─ HostReachabilityProbes (suspend, IO) │
                           ├─ LocalListenerProbe (suspend, IO) │
                           ├─ StunProbe (suspend, IO) │
                           ├─ Traceroute (suspend, IO) │
@@ -59,7 +61,7 @@ DetectorEngine.runAll() ─┼─ GeoIpProbes (suspend, IO) ──┐
 
 - `DetectorEngine.runAll` runs on `Dispatchers.IO`.
 - `SystemChecks` is synchronous (microseconds).
-- `GeoIpProbes.runAll` and `ActiveProbes.run` use `coroutineScope { async { } }` to fire network calls in parallel. Total wall time is bounded by the slowest probe family.
+- `GeoIpProbes.runAll`, `ActiveProbes.run`, and `HostReachabilityProbes.run` use `coroutineScope { async { } }` to fire network calls in parallel. Total wall time is bounded by the slowest probe family.
 - `ConsistencyChecks` runs after probes finish since it depends on `ProbeResult.country`.
 
 ## Permissions
