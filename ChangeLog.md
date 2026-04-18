@@ -1,5 +1,29 @@
 # ChangeLog
 
+## 2026-04-18 (release v0.6.0) — Router-VPN signals, HOST_REACHABILITY parity, RU localization
+
+Consolidates everything landed since v0.5.0:
+
+- Multi-target traceroute (Cloudflare / Google DNS / Yandex DNS)
+  surfaces split / whitelist routing directly.
+- Router-VPN detection: IPv4/IPv6 exit split, DNS-resolver vs HTTP
+  exit leak, STUN mapped-address vs HTTP exit comparison. Five new
+  external-IP probes (yandex-v4/v6, ifconfig.me, aws-checkip,
+  ip.mail.ru) and specialty probes (ip-api-v6, resolver-egress)
+  excluded from aggregation.
+- `HOST_REACHABILITY`-parity layer mirroring the reference-messenger
+  anti-fraud collector documented in public RU research: six-endpoint
+  first-success IP collector over raw `java.net.Socket` / `SSLSocket`,
+  plus the exact five-host reachability fingerprint.
+- Full Russian localization — UI chrome, severity / verdict / matrix
+  labels, all ~50 check labels and their multi-sentence explanations,
+  per-source detail entries, share-text output. Codex-reviewed for
+  idiomatic terminology and register.
+- Copy scrub — no explicit "RKN" / "Роскомнадзор" / specific-app
+  names remain in code, docs, strings, or research notes.
+
+versionCode 5 → 6, versionName 0.5.0 → 0.6.0.
+
 ## 2026-04-18 — Full Russian localization (UI + all check rows)
 
 Extracted every hardcoded user-facing string to `res/values/strings.xml`
