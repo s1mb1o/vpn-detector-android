@@ -39,7 +39,7 @@ object SystemChecks {
         "de.blinkt.openvpn",
         "net.openvpn.openvpn",
         "com.adguard.vpn",
-        // DPI / blocker bypass tools (less specific to RKN)
+        // DPI / blocker bypass tools (less specific to state-level blocking)
         "app.intra",
         "org.proxydroid",
         "org.torproject.android",       // Orbot
@@ -49,7 +49,7 @@ object SystemChecks {
     )
 
     /**
-     * Anti-RKN / anti-detection toolchain. These are not generic VPN clients — they are
+     * Anti-censorship / anti-detection toolchain. These are not generic VPN clients — they are
      * **specifically designed** to defeat the same detection methodology this app implements
      * (AmneziaWG = WireGuard with junk-packet padding to bypass DPI fingerprinting; Xray /
      * VLESS-Reality = TLS-mimicking transport designed for RU; NekoBox / v2rayNG / Shadowsocks
@@ -98,7 +98,7 @@ object SystemChecks {
     )
 
     /** Telegram-family packages. Telegram is a weak signal: presence + active use suggests
-     *  the user routinely bypasses RKN's various Telegram blocks (router VPN, MTProto proxy, etc.). */
+     *  the user routinely bypasses state-level Telegram blocks (router VPN, MTProto proxy, etc.). */
     private val TELEGRAM_PACKAGES = listOf(
         "org.telegram.messenger",          // official stable
         "org.telegram.messenger.web",      // official from web site
