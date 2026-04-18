@@ -51,7 +51,7 @@
 
     <!-- Methodology matrix labels -->
     <string name="matrix_bypass_not_detected">ОБХОД НЕ ВЫЯВЛЕН</string>
-    <string name="matrix_needs_review">ТРЕБУЕТСЯ ПРОВЕРКА</string>
+    <string name="matrix_needs_review">ТРЕБУЕТСЯ УТОЧНЕНИЕ</string>
     <string name="matrix_bypass_detected">ОБХОД ВЫЯВЛЕН</string>
 
     <!-- Generic value tokens used across checks -->
