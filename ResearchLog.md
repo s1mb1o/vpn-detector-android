@@ -123,10 +123,10 @@ If the goal is "mirror the reference pipeline specifically", not merely "detect 
 
 ### 1. Blocked-domain HTTP reachability
 
-**Idea.** RKN's TSPU blocks a public, well-known list of foreign sites at the operator level (DNS poisoning + SNI-based DPI reset). If the device successfully completes a TLS handshake with any of these from a RU connection, something on the path is bypassing the block — most plausibly a router-level VPN exit, a per-app proxy, or a DoH-aware browser used as a tunnel.
+**Idea.** The RU state-level TSPU DPI blocks a public, well-known list of foreign sites at the operator level (DNS poisoning + SNI-based DPI reset). If the device successfully completes a TLS handshake with any of these from a RU connection, something on the path is bypassing the block — most plausibly a router-level VPN exit, a per-app proxy, or a DoH-aware browser used as a tunnel.
 
 **How to probe from the app:**
-- Maintain a small fixed list of long-blocked-in-RU foreign domains. Public, undisputed, in the RKN registry for years: `linkedin.com` (since 2016), `facebook.com` (since 2022), `instagram.com` (since 2022). Avoid anything that's only throttled or only sometimes blocked — we want unambiguous signals.
+- Maintain a small fixed list of long-blocked-in-RU foreign domains. Public, undisputed, on the RU state block list for years: `linkedin.com` (since 2016), `facebook.com` (since 2022), `instagram.com` (since 2022). Avoid anything that's only throttled or only sometimes blocked — we want unambiguous signals.
 - For each, do a single OkHttp `HEAD https://<domain>/` with a 4-second timeout.
 - Classify the outcome:
   - **2xx / 3xx** → reachable, almost certainly via bypass on a RU connection

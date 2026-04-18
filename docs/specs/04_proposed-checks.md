@@ -15,7 +15,7 @@ Status: **specification only**. Implementation deferred until thresholds are val
 | Per-source details | one row per domain, classified `reachable` / `tls-rst` / `connect-timeout` / `nxdomain` |
 | Files to touch | new `detect/probes/BlockedReachProbe.kt`, register in `DetectorEngine` |
 
-**Domain shortlist (audited, all in RKN registry for ≥4 years):**
+**Domain shortlist (audited, all on the RU state block list for ≥4 years):**
 - `linkedin.com` — blocked since 2016
 - `facebook.com` — blocked since 2022
 - `instagram.com` — blocked since 2022

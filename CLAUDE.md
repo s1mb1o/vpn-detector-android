@@ -1,11 +1,11 @@
 # vpn-detector-android — project notes
 
-Diagnostic Android app. Mirrors RKN/anti-fraud SDK detection logic. Used as feedback oracle for MikroTik tuning.
+Diagnostic Android app. Mirrors state-blocking / anti-fraud SDK detection logic. Used as feedback oracle for MikroTik tuning.
 
 ## Related
 
 - Mikrotik repo: `~/Projects/10_admin/mikrotik`
-- RKN research: `~/Projects/10_admin/mikrotik/docs/rkn/`
+- Blocking research: `~/Projects/10_admin/mikrotik/docs/rkn/`
 - Plan: `~/.claude/plans/misty-doodling-candle.md`
 - Source detection methodology: `~/Projects/10_admin/mikrotik/docs/rkn/vpn-detection-methodology.md`
 
