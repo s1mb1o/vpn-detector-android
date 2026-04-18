@@ -1,5 +1,17 @@
 # ChangeLog
 
+## 2026-04-15 — Multi-target traceroute (3 anchors)
+
+`router_egress_country` now probes three anchors in parallel:
+`1.1.1.1` (Cloudflare), `8.8.8.8` (Google DNS), `77.88.8.8`
+(Yandex DNS, RU). Aggregate verdict is worst across targets;
+per-target hop detail is grouped in the expanded view.
+
+Split/whitelist-routing setups (RU destinations local, foreign
+tunnelled) are now directly visible — the RU target stays PASS while
+the foreign targets go HARD. Previously a single 1.1.1.1 target
+couldn't distinguish "full VPN" from "whitelist routing".
+
 ## 2026-04-10 (release v0.5.0) — Anti-detection toolchain, cellular & GeoIP fixes
 
 New checks (System tab):

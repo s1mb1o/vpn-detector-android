@@ -21,18 +21,32 @@ import java.util.concurrent.TimeUnit
  * Check C — Router egress traceroute.
  *
  * Uses the on-device `/system/bin/ping` binary with `-t TTL` to map the L3 path
- * to a foreign anchor (1.1.1.1). Path A from `docs/specs/04_proposed-checks.md`:
+ * to several fixed anchors in parallel. Path A from `docs/specs/04_proposed-checks.md`:
  * unprivileged ICMP socket, no root, no permissions beyond INTERNET.
  *
- * Verdict rule: if the **first non-RFC1918 hop's country** differs from the
- * SIM country, the device's egress is via a router-side VPN tunnel.
+ * Multi-target: a single foreign anchor only reveals "some traffic goes abroad".
+ * Probing both foreign (1.1.1.1, 8.8.8.8) and RU-anchored (77.88.8.8) hosts
+ * surfaces split-routing policies — e.g. whitelist-routing routers that keep
+ * RU destinations local but tunnel foreign traffic out, which would trip the
+ * foreign targets' verdicts while the RU target stays clean.
+ *
+ * Verdict rule (per target): if the first non-RFC1918 hop's country differs
+ * from the SIM country, that target egresses through a router-side VPN.
+ * Aggregate verdict: worst across targets — HARD if any target differs.
  */
 object Traceroute {
 
-    private const val TARGET = "1.1.1.1"
     private const val MAX_TTL = 15
     private const val PING_TIMEOUT_S = 2L
     private val HOP_REGEX = Regex("""(?:From\s+|bytes from\s+)(\d{1,3}(?:\.\d{1,3}){3})""")
+
+    private data class Target(val ip: String, val name: String)
+
+    private val TARGETS = listOf(
+        Target("1.1.1.1", "Cloudflare"),
+        Target("8.8.8.8", "Google DNS"),
+        Target("77.88.8.8", "Yandex DNS"),
+    )
 
     @Serializable
     private data class IpinfoLite(
@@ -43,11 +57,20 @@ object Traceroute {
     )
 
     private data class Hop(val ttl: Int, val ip: String?, val isFinal: Boolean)
+    private data class TargetTrace(val target: Target, val hops: List<Hop>)
+    private data class Per(
+        val target: Target,
+        val firstPublic: Hop?,
+        val country: String?,
+        val verdict: Severity,
+    )
 
     suspend fun run(ctx: Context): List<Check> = withContext(Dispatchers.IO) {
-        val rawHops = traceroute()
+        val traces = coroutineScope {
+            TARGETS.map { t -> async { TargetTrace(t, traceroute(t.ip)) } }.awaitAll()
+        }
 
-        if (rawHops.all { it.ip == null }) {
+        if (traces.all { tr -> tr.hops.all { it.ip == null } }) {
             return@withContext listOf(
                 Check(
                     id = "router_egress_country",
@@ -61,77 +84,100 @@ object Traceroute {
             )
         }
 
-        // Trim hops at the first final reply (don't show ghosts past the destination)
-        val finalIdx = rawHops.indexOfFirst { it.isFinal }
-        val hops = if (finalIdx >= 0) rawHops.take(finalIdx + 1) else rawHops
+        // Trim each trace at first final reply (don't show ghosts past the destination)
+        val trimmed = traces.map { tr ->
+            val finalIdx = tr.hops.indexOfFirst { it.isFinal }
+            TargetTrace(tr.target, if (finalIdx >= 0) tr.hops.take(finalIdx + 1) else tr.hops)
+        }
 
-        val firstPublic = hops.firstOrNull { it.ip != null && !isPrivate(it.ip) }
-        val publicIps = hops.mapNotNull { it.ip }.filter { !isPrivate(it) }.distinct()
-        val ipinfo = publicIps.associateWith { lookupIpinfo(it) }
+        // Dedupe ipinfo lookups across all targets
+        val allPublicIps = trimmed.flatMap { it.hops.mapNotNull { h -> h.ip } }
+            .filter { !isPrivate(it) }.distinct()
+        val ipinfo = allPublicIps.associateWith { lookupIpinfo(it) }
 
         val tm = ctx.getSystemService(Context.TELEPHONY_SERVICE) as? TelephonyManager
         val simCountry = (tm?.simCountryIso?.takeIf { it.isNotEmpty() }
             ?: tm?.networkCountryIso.orEmpty()).uppercase()
 
-        val firstPublicCountry = firstPublic?.ip?.let { ipinfo[it]?.country?.uppercase() }
-
-        val verdict: Severity = when {
-            firstPublic == null -> Severity.INFO
-            simCountry.isEmpty() || firstPublicCountry == null -> Severity.INFO
-            firstPublicCountry == simCountry -> Severity.PASS
-            else -> Severity.HARD
-        }
-
-        val details = hops.map { h ->
-            val info = h.ip?.let { ipinfo[it] }
-            val reported = when {
-                h.ip == null -> "* (no reply)"
-                isPrivate(h.ip) -> "${h.ip}  (private)"
-                info == null -> "${h.ip}  (geoip lookup failed)"
-                else -> "${h.ip}  ${info.country ?: "?"}  ${info.city.orEmpty()}  ${info.org.orEmpty()}".trim()
+        val per = trimmed.map { tr ->
+            val first = tr.hops.firstOrNull { it.ip != null && !isPrivate(it.ip) }
+            val country = first?.ip?.let { ipinfo[it]?.country?.uppercase() }
+            val v: Severity = when {
+                first == null -> Severity.INFO
+                simCountry.isEmpty() || country == null -> Severity.INFO
+                country == simCountry -> Severity.PASS
+                else -> Severity.HARD
             }
-            val sev = when {
-                h.ip == null -> Severity.INFO
-                isPrivate(h.ip) -> Severity.INFO
-                info?.country == null -> Severity.INFO
-                h == firstPublic && firstPublicCountry != null && simCountry.isNotEmpty()
-                    && firstPublicCountry != simCountry -> Severity.HARD
-                info.country.uppercase() == simCountry -> Severity.PASS
-                else -> Severity.INFO
-            }
-            DetailEntry(source = "hop ${h.ttl}", reported = reported, verdict = sev)
+            Per(tr.target, first, country, v)
         }
 
-        val value = when {
-            firstPublic == null -> "no public hop reached"
-            verdict == Severity.HARD -> "${firstPublic.ip} = $firstPublicCountry  ≠  SIM=$simCountry"
-            verdict == Severity.PASS -> "${firstPublic.ip} = $firstPublicCountry  ✓"
-            else -> firstPublic.ip ?: "?"
+        val aggregate = when {
+            per.any { it.verdict == Severity.HARD } -> Severity.HARD
+            per.any { it.verdict == Severity.PASS } && per.none { it.verdict == Severity.HARD } -> Severity.PASS
+            else -> Severity.INFO
         }
+
+        val details = trimmed.flatMap { tr ->
+            val p = per.first { it.target == tr.target }
+            tr.hops.map { h ->
+                val info = h.ip?.let { ipinfo[it] }
+                val reported = when {
+                    h.ip == null -> "* (no reply)"
+                    isPrivate(h.ip) -> "${h.ip}  (private)"
+                    info == null -> "${h.ip}  (geoip lookup failed)"
+                    else -> "${h.ip}  ${info.country ?: "?"}  ${info.city.orEmpty()}  ${info.org.orEmpty()}".trim()
+                }
+                val sev = when {
+                    h.ip == null -> Severity.INFO
+                    isPrivate(h.ip) -> Severity.INFO
+                    info?.country == null -> Severity.INFO
+                    h == p.firstPublic && p.verdict == Severity.HARD -> Severity.HARD
+                    h == p.firstPublic && p.verdict == Severity.PASS -> Severity.PASS
+                    else -> Severity.INFO
+                }
+                DetailEntry(
+                    source = "${tr.target.name} (${tr.target.ip}) · hop ${h.ttl}",
+                    reported = reported,
+                    verdict = sev,
+                )
+            }
+        }
+
+        val value = per.joinToString("  ·  ") { p ->
+            val cc = p.country ?: if (p.firstPublic == null) "—" else "?"
+            val mark = when (p.verdict) {
+                Severity.PASS -> " ✓"
+                Severity.HARD -> " ✗"
+                else -> ""
+            }
+            "${p.target.name}=$cc$mark"
+        } + if (simCountry.isNotEmpty()) "  (SIM=$simCountry)" else ""
 
         listOf(
             Check(
                 id = "router_egress_country",
                 category = Category.PROBES,
-                label = "Router egress traceroute",
+                label = "Router egress traceroute (${TARGETS.size} targets)",
                 value = value,
-                severity = verdict,
-                explanation = "Maps the L3 path to $TARGET via /system/bin/ping -t N. " +
-                    "Rule: the first non-RFC1918 hop's country must match the SIM country. " +
-                    "If it differs, the device's traffic is exiting through a router-side VPN. " +
-                    "Tap to see every hop, including the private ones inside the router.",
+                severity = aggregate,
+                explanation = "Maps the L3 path to ${TARGETS.joinToString { it.ip }} via " +
+                    "/system/bin/ping -t N. Rule: each target's first non-RFC1918 hop country " +
+                    "must match the SIM country. A foreign hop means the router tunnels that " +
+                    "destination through a VPN. Probing both foreign (Cloudflare, Google) and " +
+                    "RU (Yandex) anchors exposes split / whitelist-routing setups where only " +
+                    "some destinations are tunnelled. Tap to see every hop per target.",
                 details = details,
             )
         )
     }
 
-    private suspend fun traceroute(): List<Hop> = coroutineScope {
-        (1..MAX_TTL).map { ttl -> async { ping(ttl) } }
+    private suspend fun traceroute(target: String): List<Hop> = coroutineScope {
+        (1..MAX_TTL).map { ttl -> async { ping(ttl, target) } }
             .awaitAll()
             .sortedBy { it.ttl }
     }
 
-    private fun ping(ttl: Int): Hop {
+    private fun ping(ttl: Int, target: String): Hop {
         return try {
             val pb = ProcessBuilder(
                 "/system/bin/ping",
@@ -139,7 +185,7 @@ object Traceroute {
                 "-W", "1",
                 "-n",
                 "-t", ttl.toString(),
-                TARGET,
+                target,
             ).redirectErrorStream(true)
             val p = pb.start()
             val finished = p.waitFor(PING_TIMEOUT_S, TimeUnit.SECONDS)
@@ -160,7 +206,7 @@ object Traceroute {
     private fun lookupIpinfo(ip: String): IpinfoLite? = try {
         val req = Request.Builder()
             .url("https://ipinfo.io/$ip/json")
-            .header("User-Agent", "vpn-detector/0.3")
+            .header("User-Agent", "vpn-detector/0.5")
             .build()
         Http.client.newCall(req).execute().use { resp ->
             if (!resp.isSuccessful) null
