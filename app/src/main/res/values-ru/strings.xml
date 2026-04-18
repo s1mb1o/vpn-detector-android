@@ -1,0 +1,320 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Детектор VPN (QA)</string>
+
+    <!-- UI chrome -->
+    <string name="ui_fab_run">Запустить все проверки</string>
+    <string name="ui_fab_running">Выполняется…</string>
+    <string name="ui_tab_system">Система</string>
+    <string name="ui_tab_geoip">GeoIP</string>
+    <string name="ui_tab_consistency">Согласованность</string>
+    <string name="ui_tab_probes">Зонды</string>
+    <string name="ui_tab_history">История</string>
+    <string name="ui_tab_no_run">Запусков ещё не было</string>
+    <string name="ui_verdict_no_run">— запусков ещё не было —</string>
+    <string name="ui_verdict_tap_to_start">Нажмите «Запустить все проверки», чтобы начать.</string>
+    <string name="ui_verdict_score">счёт=%1$d  hard=%2$d  soft=%3$d</string>
+    <string name="ui_verdict_matrix">матрица: %1$s  [geoip=%2$s direct=%3$s indirect=%4$s]</string>
+    <string name="ui_verdict_axis_yes">Y</string>
+    <string name="ui_verdict_axis_no">n</string>
+    <string name="ui_share_subject">запуск vpn-detector · %1$s</string>
+    <string name="ui_share_chooser_title">Поделиться результатами</string>
+    <string name="ui_share_results_cd">Поделиться результатами</string>
+    <string name="ui_dialog_close">Закрыть</string>
+    <string name="ui_dialog_id">ID</string>
+    <string name="ui_dialog_category">Категория</string>
+    <string name="ui_dialog_severity">Серьёзность</string>
+    <string name="ui_dialog_value">Значение</string>
+    <string name="ui_dialog_explanation">Пояснение</string>
+    <string name="ui_dialog_details">Разбор по источникам</string>
+    <string name="ui_history_clear">Очистить историю</string>
+    <string name="ui_history_tag">метка: %1$s</string>
+    <string name="ui_history_score">счёт=%1$d hard=%2$d soft=%3$d</string>
+    <string name="ui_history_header">%1$s  •  %2$s</string>
+
+    <!-- Severity pill labels -->
+    <string name="severity_fail">ПРОВАЛ</string>
+    <string name="severity_warn">ВНИМ.</string>
+    <string name="severity_pass">ОК</string>
+    <string name="severity_info">ИНФО</string>
+
+    <!-- Verdict bar labels -->
+    <string name="verdict_clean">ЧИСТО</string>
+    <string name="verdict_suspicious">ПОДОЗРИТЕЛЬНО</string>
+    <string name="verdict_detected">ВЫЯВЛЕНО</string>
+
+    <!-- Categories (display names for enums) -->
+    <string name="category_system">СИСТЕМА</string>
+    <string name="category_geoip">GEOIP</string>
+    <string name="category_consistency">СОГЛАСОВАННОСТЬ</string>
+    <string name="category_probes">ЗОНДЫ</string>
+
+    <!-- Methodology matrix labels -->
+    <string name="matrix_bypass_not_detected">ОБХОД НЕ ВЫЯВЛЕН</string>
+    <string name="matrix_needs_review">ТРЕБУЕТСЯ ПРОВЕРКА</string>
+    <string name="matrix_bypass_detected">ОБХОД ВЫЯВЛЕН</string>
+
+    <!-- Generic value tokens used across checks -->
+    <string name="val_none">нет</string>
+    <string name="val_off">выкл</string>
+    <string name="val_on">вкл</string>
+    <string name="val_yes">да</string>
+    <string name="val_no">нет</string>
+    <string name="val_stock">штатно</string>
+    <string name="val_rooted">есть root (su=%1$s magisk=%2$s)</string>
+    <string name="val_na">н/д</string>
+    <string name="val_na_no_network">н/д (нет активной сети)</string>
+    <string name="val_na_no_perm_or_wifi">н/д (нет разрешения или не Wi-Fi)</string>
+    <string name="val_error_prefix">ОШИБКА: %1$s</string>
+    <string name="val_private">%1$s  (приватный)</string>
+    <string name="val_no_reply">* (нет ответа)</string>
+    <string name="val_geoip_lookup_failed">%1$s  (GeoIP-запрос не удался)</string>
+    <string name="val_hop_with_info">%1$s  %2$s  %3$s  %4$s</string>
+    <string name="val_no_hops_returned">узлы не получены</string>
+    <string name="val_n_different_ips">%1$d разных IP</string>
+    <string name="val_flagged">отмечено</string>
+    <string name="val_clean">чисто</string>
+    <string name="val_no_probe">нет зонда</string>
+    <string name="val_no_v6_probe">нет v6-зонда</string>
+    <string name="val_no_v6">нет v6</string>
+    <string name="val_no_body">нет тела ответа</string>
+    <string name="val_no_active_vpn">активного VPN не найдено</string>
+    <string name="val_dumpsys_denied">отказано (нет DUMP; ожидаемо в production-сборках)</string>
+    <string name="val_wg_trick">приём сплит-маршрута WG</string>
+    <string name="val_private_dns_active_name">активен: %1$s</string>
+    <string name="val_private_dns_active_auto">активен (авто)</string>
+    <string name="val_always_on_with_lockdown">%1$s (lockdown=%2$d)</string>
+    <string name="val_dev_options">dev=%1$d adb=%2$d</string>
+    <string name="val_default_routes_line">%1$d default · %2$d через туннель · %3$d всего</string>
+    <string name="val_telegram_installed_running">установлено: %1$d, запущено: %2$d</string>
+    <string name="val_telegram_installed_count">установлено: %1$d</string>
+    <string name="val_telegram_not_installed">не установлен</string>
+    <string name="val_telegram_running">установлен · сейчас запущен</string>
+    <string name="val_telegram_not_foreground">установлен · не в foreground</string>
+    <string name="val_telegram_running_unknown">установлен (состояние неизвестно — выдайте доступ к статистике использования)</string>
+    <string name="val_aws_tag">AmneziaWG (DPI-устойчивый форк WG)</string>
+    <string name="val_tag_xray">клиент Xray / VLESS-Reality</string>
+    <string name="val_tag_sagernet">NekoBox / sing-box / SagerNet</string>
+    <string name="val_tag_clash">Clash / Mihomo</string>
+    <string name="val_tag_shadowsocks">Shadowsocks(R)</string>
+    <string name="val_tag_outline">Outline (на основе Shadowsocks)</string>
+    <string name="val_tag_byedpi">ByeDPI (обход ТСПУ)</string>
+    <string name="val_tag_anti_detection">инструмент обхода детекции</string>
+    <string name="val_anti_detection_summary">%1$d: %2$s</string>
+    <string name="val_ru_apps_summary">%1$d: %2$s</string>
+    <string name="val_ms">%1$d мс</string>
+    <string name="val_no_response">нет ответа</string>
+    <string name="val_ru_faster">RU быстрее ✓ (%1$d &lt; %2$d мс)</string>
+    <string name="val_foreign_faster">зарубеж быстрее (%1$d &lt; %2$d мс)</string>
+    <string name="val_captive_portal_fail">сбой</string>
+    <string name="val_open_listener">открыт · %1$s</string>
+    <string name="val_closed_listener">закрыт</string>
+    <string name="val_listener_summary">%1$d/%2$s</string>
+    <string name="val_v4_v6_info_line">v4=%1$s · v6=%2$s</string>
+    <string name="val_country_split">разделение по стране: v4=%1$s v6=%2$s</string>
+    <string name="val_asn_split">разделение по ASN: v4=%1$s v6=%2$s</string>
+    <string name="val_aligned">согласовано (%1$s / %2$s)</string>
+    <string name="val_dns_exit_info_line">exit=%1$s · dns=%2$s</string>
+    <string name="val_country_leak">утечка по стране: exit=%1$s dns=%2$s</string>
+    <string name="val_asn_leak">утечка по ASN: exit=%1$s dns=%2$s</string>
+    <string name="val_v4_exit_line">страна=%1$s  org=%2$s</string>
+    <string name="val_v6_exit_line">страна=%1$s  org=%2$s  ip=%3$s</string>
+    <string name="val_http_exit_line">страна=%1$s  org=%2$s</string>
+    <string name="val_dns_egress_line">страна=%1$s  org=%2$s  ip=%3$s</string>
+    <string name="val_sim_vs_ip">SIM=%1$s IP=%2$s</string>
+    <string name="val_net_vs_ip">NET=%1$s IP=%2$s</string>
+    <string name="val_carrier_vs_asn">оператор=%1$s asn=%2$s</string>
+    <string name="val_mcc_vs_ip">MCC=%1$s IP=%2$s</string>
+    <string name="val_locale_vs_ip">локаль=%1$s IP=%2$s</string>
+    <string name="val_lang_vs_ip">язык=%1$s IP=%2$s</string>
+    <string name="val_tz_vs_ip">устройство=%1$s ip=%2$s</string>
+    <string name="val_tz_offset_plus">+%1$d</string>
+    <string name="val_tz_offset_raw">%1$d</string>
+    <string name="val_probe_value">%1$s · %2$s · %3$s</string>
+    <string name="val_unknown">?</string>
+    <string name="val_country_transition">%1$s → %2$s</string>
+    <string name="val_country_transition_with_age">%1$s → %2$s  (%3$s)</string>
+    <string name="val_age_seconds">%1$d с назад</string>
+    <string name="val_age_minutes">%1$d мин назад</string>
+    <string name="val_age_hours">%1$d ч назад</string>
+    <string name="val_age_days">%1$d д назад</string>
+
+    <!-- Aggregation-helper strings inside GeoIP derive -->
+    <string name="val_no_forwarding_headers">заголовков пересылки нет</string>
+    <string name="val_service_side_whitelisted">%1$s  (сторона сервиса, в белом списке)</string>
+    <string name="val_unknown_with_known">%1$s (также: %2$s — сторона сервиса, игнорируется)</string>
+    <string name="val_no_org_field">(нет поля org)</string>
+    <string name="val_asn_excluded">%1$s  (исключено: сравнивается в Согласованности)</string>
+    <string name="val_asn_excluded_dc">%1$s  ←  "%2$s" (исключено: сравнивается в Согласованности)</string>
+    <string name="val_asn_cdn_whitelist">%1$s  ←  CDN белый список ("%2$s")</string>
+    <string name="val_asn_dc_match">%1$s  ←  совпадение "%2$s"</string>
+    <string name="val_ip_excluded">%1$s  (исключено из проверки согласия)</string>
+    <string name="val_no_fields">(провайдер не сообщает proxy/hosting/vpn)</string>
+    <string name="val_transparent_proxy_hits">%1$d неизвестных совпадений</string>
+    <string name="val_transparent_proxy_none">нет (или все в белом списке)</string>
+
+    <!-- STUN values -->
+    <string name="val_stun_no_response">нет ответа STUN</string>
+    <string name="val_stun_no_v4_exit">%1$s:%2$d (v4 HTTP-выход неизвестен)</string>
+    <string name="val_stun_matches">%1$s:%2$d (совпадает с HTTP-выходом)</string>
+    <string name="val_stun_bypass">%1$s ≠ %2$s  (обход UDP)</string>
+    <string name="val_stun_no_response_line">(нет ответа за %1$d мс)</string>
+
+    <!-- Reference-parity values -->
+    <string name="val_ref_no_ip">полезный IP не получен</string>
+    <string name="val_ref_winner">%1$s -&gt; %2$s</string>
+    <string name="val_ref_hosts_reachable">%1$d/%2$d доступны</string>
+    <string name="val_ref_hosts_reachable_with_missing">%1$d/%2$d доступны · отсутствуют: %3$s</string>
+    <string name="val_ref_skipped">пропущено (победитель уже выбран: %1$s -&gt; %2$s)</string>
+    <string name="val_ref_winner_line">%1$s  (HTTP %2$s; %3$s)</string>
+    <string name="val_ref_seen">виден параллельными зондами</string>
+    <string name="val_ref_not_seen">не виден параллельными зондами</string>
+    <string name="val_ref_loopback_rejected">%1$s отклонён (loopback)</string>
+    <string name="val_ref_no_ip_parsed">IP не распознан (HTTP %1$s)</string>
+    <string name="val_ref_reachable">доступен на tcp/%1$d (%2$s)</string>
+    <string name="val_ref_unreachable">недоступен через %1$s · %2$s</string>
+
+    <!-- Router egress values -->
+    <string name="val_router_sim_suffix">  (SIM=%1$s)</string>
+
+    <!-- DetailEntry source labels -->
+    <string name="det_v4_exit">v4-выход</string>
+    <string name="det_v6_exit">v6-выход</string>
+    <string name="det_http_exit">HTTP-выход</string>
+    <string name="det_dns_resolver_egress">выход DNS-резолвера</string>
+    <string name="det_default_routes">маршруты по умолчанию</string>
+    <string name="det_routes_via_tunnel">маршрутов через туннель</string>
+    <string name="det_total_routes">всего маршрутов</string>
+    <string name="det_stun_server">STUN-сервер</string>
+    <string name="det_stun_xor_mapped">XOR-MAPPED-ADDRESS</string>
+    <string name="det_http_v4_exit">v4 HTTP-выход (ipify и т.п.)</string>
+    <string name="det_unknown">(неизвестно)</string>
+    <string name="det_parallel_probes">параллельные зонды</string>
+    <string name="det_router_hop">%1$s (%2$s) · хоп %3$d</string>
+    <string name="det_lat_prefixed">[%1$s] %2$s</string>
+    <string name="det_group_ru">RU</string>
+    <string name="det_group_foreign">зарубеж</string>
+
+    <!-- Severity label short (used in toShareText and logcat) -->
+    <string name="sev_label_fail">FAIL</string>
+    <string name="sev_label_warn">WARN</string>
+    <string name="sev_label_pass">PASS</string>
+    <string name="sev_label_info">INFO</string>
+
+    <!-- Check labels -->
+    <string name="check_transport_vpn_label">Флаг TRANSPORT_VPN</string>
+    <string name="check_cap_not_vpn_label">NET_CAPABILITY_NOT_VPN</string>
+    <string name="check_tun_iface_label">Туннельные интерфейсы</string>
+    <string name="check_active_iface_name_label">Имя активного интерфейса</string>
+    <string name="check_default_route_tun_label">Маршрут по умолчанию через туннель</string>
+    <string name="check_http_proxy_label">HTTP-прокси в link</string>
+    <string name="check_private_dns_label">Private DNS (DoT)</string>
+    <string name="check_dns_servers_label">DNS-серверы</string>
+    <string name="check_always_on_vpn_label">Always-on VPN</string>
+    <string name="check_installed_vpn_apps_label">Установленные VPN-клиенты</string>
+    <string name="check_anti_detection_apps_label">Инструменты обхода детекции</string>
+    <string name="check_mtu_label">MTU активного интерфейса</string>
+    <string name="check_mock_location_label">Mock location</string>
+    <string name="check_dev_options_label">Опции разработчика / ADB</string>
+    <string name="check_active_transport_label">Активный транспорт</string>
+    <string name="check_root_label">Индикаторы root</string>
+    <string name="check_wifi_ssid_label">SSID Wi-Fi</string>
+    <string name="check_jvm_proxy_label">Свойства JVM-прокси</string>
+    <string name="check_vpn_transport_info_label">VpnTransportInfo</string>
+    <string name="check_route_anomalies_label">Аномалии таблицы маршрутизации</string>
+    <string name="check_dumpsys_vpn_label">dumpsys vpn_management</string>
+    <string name="check_telegram_present_label">Наличие Telegram</string>
+    <string name="check_probe_label">Зонд: %1$s</string>
+    <string name="check_external_country_label">Внешняя страна</string>
+    <string name="check_asn_class_label">Организация ASN</string>
+    <string name="check_reputation_flag_label">Флаг репутации зонда</string>
+    <string name="check_probe_ip_agreement_label">Согласие зондов по IP</string>
+    <string name="check_probe_country_agreement_label">Согласие зондов по стране</string>
+    <string name="check_transparent_proxy_headers_label">Заголовки прозрачного прокси</string>
+    <string name="check_country_history_stable_label">Страна стабильна между запусками</string>
+    <string name="check_country_history_changed_label">Страна изменилась между запусками</string>
+    <string name="check_sim_vs_ip_label">Страна SIM vs страна IP</string>
+    <string name="check_net_vs_ip_label">Страна сети vs страна IP</string>
+    <string name="check_carrier_vs_asn_label">Оператор vs организация ASN</string>
+    <string name="check_mcc_vs_ip_label">MCC vs страна IP</string>
+    <string name="check_locale_vs_ip_label">Страна локали vs IP</string>
+    <string name="check_lang_vs_ip_label">Язык vs страна IP</string>
+    <string name="check_tz_vs_ip_label">Часовой пояс vs таймзона IP</string>
+    <string name="check_tz_offset_label">UTC-смещение устройства</string>
+    <string name="check_ru_apps_label">Установлены российские приложения</string>
+    <string name="check_v4_v6_exit_split_label">Разделение выхода IPv4 vs IPv6</string>
+    <string name="check_dns_vs_exit_label">DNS-резолвер vs HTTP-выход</string>
+    <string name="check_lat_ru_label">Задержка до RU-якорей (медиана)</string>
+    <string name="check_lat_foreign_label">Задержка до зарубежных якорей (медиана)</string>
+    <string name="check_lat_ratio_label">Порядок задержек RU vs зарубеж</string>
+    <string name="check_ipv6_label">Внешний адрес IPv6</string>
+    <string name="check_local_addrs_label">Локальные адреса</string>
+    <string name="check_captive_portal_label">Захват портала (gstatic 204)</string>
+    <string name="check_local_proxy_listeners_label">Локальные прокси-слушатели</string>
+    <string name="check_router_egress_country_label">Трассировка выхода роутера</string>
+    <string name="check_router_egress_country_label_n">Трассировка выхода роутера (%1$d целей)</string>
+    <string name="check_stun_mapped_vs_exit_label">STUN-адрес vs HTTP-выход</string>
+    <string name="check_ref_ip_first_success_label">Референс-сборщик IP (первый успех)</string>
+    <string name="check_ref_host_reachability_label">Хосты HOST_REACHABILITY</string>
+
+    <!-- Check explanations -->
+    <string name="check_transport_vpn_explanation">ConnectivityManager.hasTransport(TRANSPORT_VPN). Если true, активен локальный VPN-клиент. Самый проверяемый антифрод-сигнал.</string>
+    <string name="check_cap_not_vpn_explanation_none">Нельзя оценить без активной сети / при переключении сетей.</string>
+    <string name="check_cap_not_vpn_explanation">Зеркало TRANSPORT_VPN. SDK проверяют оба, чтобы обойти примитивные способы скрытия.</string>
+    <string name="check_tun_iface_explanation">Любой UP-интерфейс tun/tap/wg/utun/ppp/ipsec означает локальный VPN или IPsec/IKEv2 клиент.</string>
+    <string name="check_active_iface_name_explanation">Имя интерфейса активной сети. wlan*/rmnet*/ccmni* норма; tun/wg/utun/ppp/ipsec — VPN.</string>
+    <string name="check_default_route_tun_explanation">0.0.0.0/0 через tun ИЛИ приём 0.0.0.0/1 + 128.0.0.0/1 (сигнатура WireGuard).</string>
+    <string name="check_http_proxy_explanation">LinkProperties.httpProxy. Любое значение = системный HTTP-прокси, воспринимается SDK как VPN.</string>
+    <string name="check_private_dns_explanation">Не-операторский DoT (Cloudflare/Google/AdGuard) — штраф у антифрода.</string>
+    <string name="check_dns_servers_explanation">Системные DNS-резолверы. Публичные провайдеры (1.1.1.1, 8.8.8.8, AdGuard, Quad9) отмечаются.</string>
+    <string name="check_always_on_vpn_explanation">Settings.Secure always_on_vpn_app + always_on_vpn_lockdown.</string>
+    <string name="check_installed_vpn_apps_explanation">Скан PackageManager по именам обычных коммерческих VPN-клиентов. SOFT, так как у них есть легитимные рабочие / приватные сценарии.</string>
+    <string name="check_anti_detection_apps_explanation">Пакеты, специально созданные для обхода клиентской детекции VPN: AmneziaWG (WG с обфускацией junk-пакетами), Xray/VLESS-Reality (TLS-мимикрия), NekoBox / sing-box / SagerNet (GUI для Xray), Clash/Mihomo, Shadowsocks(R), Outline, ByeDPI (обход ТСПУ). В отличие от обычных VPN-клиентов, у них нет сценария «мне нужен VPN для работы» — установка подразумевает намерение обходить антифрод.</string>
+    <string name="check_mtu_explanation">Типично WG=1420, AmneziaWG≈1380, чистый v4 MTU 1280. Не 1500 на Wi-Fi — подозрительно.</string>
+    <string name="check_mock_location_explanation">Банки штрафуют устройства с возможностью mock-локации.</string>
+    <string name="check_dev_options_explanation">Диагностический контекст. Часто соседствует с VPN-сценариями, но сам по себе не VPN-сигнал.</string>
+    <string name="check_active_transport_explanation">Используется другими вкладками для интерпретации проверок согласованности.</string>
+    <string name="check_root_explanation">Эвристика: бинарь su или наличие Magisk. В сочетании с VPN усиливает подозрения.</string>
+    <string name="check_wifi_ssid_explanation">Диагностика — полезно для тегирования истории по локации.</string>
+    <string name="check_jvm_proxy_explanation">System.getProperty(http.proxyHost / https.proxyHost / socksProxyHost). Процессные прокси, которые LinkProperties.httpProxy не видит.</string>
+    <string name="check_vpn_transport_info_explanation">NetworkCapabilities.transportInfo на API 31+. Если не null и тип VpnTransportInfo, выдаёт session id, тип и bypassable текущего VPN.</string>
+    <string name="check_route_anomalies_explanation">Несколько default-маршрутов или маршруты через tun/wg/utun/ppp/ipsec — косвенные признаки split-tunnel / корпоративного / форкового VPN.</string>
+    <string name="check_dumpsys_vpn_explanation">Runtime.exec(dumpsys vpn_management). Перечисляет активные VPN-пакеты на Android 12+. Обычным приложениям обычно отказывают; на userdebug-сборках и некоторых OEM — проходит.</string>
+    <string name="check_telegram_present_explanation">Слабый сигнал: Telegram в РФ регулярно ограничивается/блокируется. Пользователь, у которого Telegram установлен и активно используется, вероятно обходит эти ограничения (роутерный VPN, MTProto-прокси и т.п.). Определение «запущен ли» требует разрешения Usage Access (Настройки → Приложения → Спец. доступ → Доступ к статистике использования).</string>
+    <string name="check_probe_explanation">Сырой результат GeoIP-зонда.</string>
+    <string name="check_external_country_explanation">Что видит внешний мир. PASS только для RU. Реальный вердикт — во вкладке Согласованность.</string>
+    <string name="check_asn_class_explanation">Датацентровые ASN (DigitalOcean/AWS/Hetzner/OVH и т.д.) = HARD VPN-сигнал. Жилые ISP-ASN — чистые. CDN-ASN (Cloudflare, Akamai, Fastly, CloudFront) в белом списке для снижения ложных срабатываний. Нажмите, чтобы увидеть, что вернул каждый зонд.</string>
+    <string name="check_reputation_flag_explanation">Антифрод-флаг от GeoIP-зонда. ip-api.com возвращает proxy/hosting; Cloudflare cdn-cgi/trace раскрывает warp=on/gateway=on (трактуется как vpn=true). Нажмите, чтобы увидеть, что вернул каждый провайдер.</string>
+    <string name="check_probe_ip_agreement_explanation">Разные зонды видят разные внешние IP = утечка split-маршрутизации.</string>
+    <string name="check_probe_country_agreement_explanation">Зонды вернули один IP, но разные страны (задержка GeoIP-базы).</string>
+    <string name="check_transparent_proxy_headers_explanation">Методика §10.2 — Via / X-Forwarded-For / Forwarded в ответах зондов указывают на прозрачный прокси на пути. Известная сервисная инфраструктура (Google Cloud LB «via=1.1 google», Fastly varnish, CloudFront, Akamai, nginx, Cloudflare, Envoy и т.д.) в белом списке — сама методика предупреждает, что такие заголовки легитимно ставятся сервисом или его CDN.</string>
+    <string name="check_country_history_stable_explanation">Методика §5.4 шаг 5 — сравнение с историей. Внешняя страна не менялась между запусками.</string>
+    <string name="check_country_history_changed_explanation">Методика §5.4 шаг 5 — сравнение с историей. Внешняя страна переключилась между соседними запусками. &lt;1ч между ними = HARD (нет правдоподобного путешествия), &lt;12ч = SOFT (возможно путешествие), больше = INFO.</string>
+    <string name="check_sim_vs_ip_explanation">TelephonyManager.simCountryIso vs GeoIP. Утечка: SIM=RU, IP=US.</string>
+    <string name="check_net_vs_ip_explanation">TelephonyManager.networkCountryIso (страна соты) vs GeoIP.</string>
+    <string name="check_carrier_vs_asn_explanation">RU-оператор на SIM, но выходной ASN — зарубежный датацентр.</string>
+    <string name="check_mcc_vs_ip_explanation">MCC 250 = Россия. Несовпадение со страной IP = HARD.</string>
+    <string name="check_locale_vs_ip_explanation">Регион системной локали vs внешняя страна.</string>
+    <string name="check_lang_vs_ip_explanation">Система на русском, но IP вне СНГ.</string>
+    <string name="check_tz_vs_ip_explanation">TimeZone.getDefault() vs поле timezone от ipinfo.</string>
+    <string name="check_tz_offset_explanation">Диагностика. Сверяйте с таймзоной ipinfo в tz_vs_ip.</string>
+    <string name="check_ru_apps_explanation">Сильный отпечаток: много российских банковских/социальных приложений + IP не-RU.</string>
+    <string name="check_v4_v6_exit_split_explanation">Роутерные VPN обычно туннелируют только IPv4, оставляя IPv6 на родной ISP. Если v4 и v6 выходят в разных странах (HARD) или разных ASN (SOFT), устройство на частичном/асимметричном туннеле — сигнатура, которую антифрод-SDK ловят dual-stack зондированием. INFO, если v6 недоступен (single-stack сеть).</string>
+    <string name="check_dns_vs_exit_explanation">whoami.akamai.net возвращает исходящий IP рекурсивного DNS-резолвера. Если резолвер выходит в другой стране, чем HTTP-выход, DNS обходит туннель (или роутер перехватывает порт 53 в другой upstream). SDK, сопоставляющие гео DNS и HTTP, отмечают это напрямую.</string>
+    <string name="check_lat_ru_explanation">yandex.ru / mail.ru / gosuslugi.ru. Дополнительный сигнал (методика §10.1). У сотовых сетей высокая базовая задержка, потому ограничено до SOFT и срабатывает только выше 400 мс. Нажмите для задержек по хостам.</string>
+    <string name="check_lat_foreign_explanation">google / cloudflare / apple. Дополнительный сигнал (методика §10.1). У современных CDN есть PoP рядом с RU-операторами, так что одна лишь зарубежная задержка — слабый сигнал. Ограничено до SOFT и срабатывает только ниже 20 мс. Нажмите для задержек по хостам.</string>
+    <string name="check_lat_ratio_explanation">С реального RU-подключения RU-якоря часто быстрее зарубежных, но у Google/Cloudflare PoP часто ближе к ядру оператора, чем сами RU-origin серверы. Обратный порядок сам по себе не означает VPN; понижено до INFO. Нажмите для измерений по хостам.</string>
+    <string name="check_ipv6_explanation">Диагностика. Сплит-туннели часто пропускают v6 — сравните со страной v4 во вкладке GeoIP.</string>
+    <string name="check_local_addrs_explanation">Все не-loopback link-local адреса по каждому интерфейсу.</string>
+    <string name="check_captive_portal_explanation">Не-204 означает captive-портал или перехват middlebox.</string>
+    <string name="check_local_proxy_listeners_explanation">TCP-подключение к 127.0.0.1 на прокси-портах из методики (SOCKS 1080/9000, Tor 9050/9051/9150, HTTP 3128/8080/8888, прозрачные 4080/7000/12345, локальные Shadowsocks/V2Ray 1081/1086 и т.д.). Любое успешное подключение = на устройстве работает прокси. SELinux блокирует чтение /proc/net/tcp, так что это единственный надёжный способ для непривилегированного приложения увидеть чужие loopback-слушатели.</string>
+    <string name="check_router_egress_country_no_hops">Часть операторских сетей полностью отбрасывает ICMP TTL-exceeded, поэтому traceroute не может построить путь на этом подключении.</string>
+    <string name="check_router_egress_country_explanation">Строит L3-путь до %1$s через /system/bin/ping -t N. Правило: страна первого не-RFC1918 хопа для каждой цели должна совпадать со страной SIM. Зарубежный хоп = роутер туннелирует эту цель через VPN. Проверка зарубежных (Cloudflare, Google) и RU (Yandex) якорей выявляет сплит/белосписочную маршрутизацию, где туннелируется только часть. Нажмите, чтобы увидеть все хопы по каждой цели.</string>
+    <string name="check_stun_mapped_vs_exit_explanation">RFC 5389 Binding Request на stun.l.google.com:19302. Антифрод-SDK запускают эквивалент через WebRTC в скрытом iframe и сопоставляют UDP-mapped адрес с HTTP-выходом. Роутерные VPN, которые туннелируют только TCP — или VPN с обходом UDP — дают здесь несовпадение, которое не виден ни одному HTTP-зонду. %1$s</string>
+    <string name="check_stun_suffix_no_response">UDP 19302 может быть заблокирован выше по цепочке или сбрасываться — неопределённо, не учитывается в счёте.</string>
+    <string name="check_stun_suffix_no_v4_exit">Нет v4 HTTP-выхода для сравнения.</string>
+    <string name="check_stun_suffix_matches">UDP и HTTP выходят через один публичный выход — split-tunnel не наблюдается.</string>
+    <string name="check_stun_suffix_bypass">UDP-выход отличается от HTTP-выхода — классическая сигнатура роутерного VPN / split-tunnel. WebRTC STUN раскрывает IP родного ISP, пока HTTP идёт через туннель.</string>
+    <string name="check_ref_ip_first_success_explanation">Повторяет референс-сборщик IP, описанный в открытом анти-фрод исследовании RU-мессенджера: ровно шесть эндпоинтов перемешиваются, запрашиваются через низкоуровневые сокеты, побеждает первый, вернувший не-loopback IP. Строка создана ради соответствия; вкладка GeoIP остаётся авторитетным, более полным представлением.</string>
+    <string name="check_ref_host_reachability_explanation">Повторяет отпечаток из пяти хостов, описанный в открытом анти-фрод исследовании: api.oneme.ru, gstatic.com, mtalk.google.com, calls.okcdn.ru, gosuslugi.ru. Здесь записываются простые булевы значения, потому что паттерн полезен в связке с флагом VPN, оператором и выходным IP, а не как самостоятельный вердикт.</string>
+</resources>

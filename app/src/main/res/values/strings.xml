@@ -1,4 +1,320 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">VPN Detection QA</string>
+
+    <!-- UI chrome -->
+    <string name="ui_fab_run">Run all checks</string>
+    <string name="ui_fab_running">Running…</string>
+    <string name="ui_tab_system">System</string>
+    <string name="ui_tab_geoip">GeoIP</string>
+    <string name="ui_tab_consistency">Consistency</string>
+    <string name="ui_tab_probes">Probes</string>
+    <string name="ui_tab_history">History</string>
+    <string name="ui_tab_no_run">No run yet</string>
+    <string name="ui_verdict_no_run">— no run yet —</string>
+    <string name="ui_verdict_tap_to_start">Tap “Run all checks” to start.</string>
+    <string name="ui_verdict_score">score=%1$d  hard=%2$d  soft=%3$d</string>
+    <string name="ui_verdict_matrix">matrix: %1$s  [geoip=%2$s direct=%3$s indirect=%4$s]</string>
+    <string name="ui_verdict_axis_yes">Y</string>
+    <string name="ui_verdict_axis_no">n</string>
+    <string name="ui_share_subject">vpn-detector run · %1$s</string>
+    <string name="ui_share_chooser_title">Share results</string>
+    <string name="ui_share_results_cd">Share results</string>
+    <string name="ui_dialog_close">Close</string>
+    <string name="ui_dialog_id">ID</string>
+    <string name="ui_dialog_category">Category</string>
+    <string name="ui_dialog_severity">Severity</string>
+    <string name="ui_dialog_value">Value</string>
+    <string name="ui_dialog_explanation">Explanation</string>
+    <string name="ui_dialog_details">Per-source breakdown</string>
+    <string name="ui_history_clear">Clear history</string>
+    <string name="ui_history_tag">tag: %1$s</string>
+    <string name="ui_history_score">score=%1$d hard=%2$d soft=%3$d</string>
+    <string name="ui_history_header">%1$s  •  %2$s</string>
+
+    <!-- Severity pill labels -->
+    <string name="severity_fail">FAIL</string>
+    <string name="severity_warn">WARN</string>
+    <string name="severity_pass">PASS</string>
+    <string name="severity_info">INFO</string>
+
+    <!-- Verdict bar labels -->
+    <string name="verdict_clean">CLEAN</string>
+    <string name="verdict_suspicious">SUSPICIOUS</string>
+    <string name="verdict_detected">DETECTED</string>
+
+    <!-- Categories (display names for enums) -->
+    <string name="category_system">SYSTEM</string>
+    <string name="category_geoip">GEOIP</string>
+    <string name="category_consistency">CONSISTENCY</string>
+    <string name="category_probes">PROBES</string>
+
+    <!-- Methodology matrix labels -->
+    <string name="matrix_bypass_not_detected">BYPASS NOT DETECTED</string>
+    <string name="matrix_needs_review">NEEDS REVIEW</string>
+    <string name="matrix_bypass_detected">BYPASS DETECTED</string>
+
+    <!-- Generic value tokens used across checks -->
+    <string name="val_none">none</string>
+    <string name="val_off">off</string>
+    <string name="val_on">on</string>
+    <string name="val_yes">yes</string>
+    <string name="val_no">no</string>
+    <string name="val_stock">stock</string>
+    <string name="val_rooted">rooted (su=%1$s magisk=%2$s)</string>
+    <string name="val_na">n/a</string>
+    <string name="val_na_no_network">n/a (no active network)</string>
+    <string name="val_na_no_perm_or_wifi">n/a (no permission or not on Wi-Fi)</string>
+    <string name="val_error_prefix">ERROR: %1$s</string>
+    <string name="val_private">%1$s  (private)</string>
+    <string name="val_no_reply">* (no reply)</string>
+    <string name="val_geoip_lookup_failed">%1$s  (geoip lookup failed)</string>
+    <string name="val_hop_with_info">%1$s  %2$s  %3$s  %4$s</string>
+    <string name="val_no_hops_returned">no hops returned</string>
+    <string name="val_n_different_ips">%1$d different IPs</string>
+    <string name="val_flagged">flagged</string>
+    <string name="val_clean">clean</string>
+    <string name="val_no_probe">no probe</string>
+    <string name="val_no_v6_probe">no v6 probe</string>
+    <string name="val_no_v6">no v6</string>
+    <string name="val_no_body">no body</string>
+    <string name="val_no_active_vpn">no active VPN reported</string>
+    <string name="val_dumpsys_denied">denied (no DUMP permission, expected on production builds)</string>
+    <string name="val_wg_trick">WG split-route trick</string>
+    <string name="val_private_dns_active_name">active: %1$s</string>
+    <string name="val_private_dns_active_auto">active (auto)</string>
+    <string name="val_always_on_with_lockdown">%1$s (lockdown=%2$d)</string>
+    <string name="val_dev_options">dev=%1$d adb=%2$d</string>
+    <string name="val_default_routes_line">%1$d default · %2$d via-tunnel · %3$d total</string>
+    <string name="val_telegram_installed_running">%1$d installed, %2$d running</string>
+    <string name="val_telegram_installed_count">%1$d installed</string>
+    <string name="val_telegram_not_installed">not installed</string>
+    <string name="val_telegram_running">installed · running now</string>
+    <string name="val_telegram_not_foreground">installed · not in foreground</string>
+    <string name="val_telegram_running_unknown">installed (running state unknown — grant Usage Access)</string>
+    <string name="val_aws_tag">AmneziaWG (DPI-resistant WG fork)</string>
+    <string name="val_tag_xray">Xray / VLESS-Reality client</string>
+    <string name="val_tag_sagernet">NekoBox / sing-box / SagerNet</string>
+    <string name="val_tag_clash">Clash / Mihomo</string>
+    <string name="val_tag_shadowsocks">Shadowsocks(R)</string>
+    <string name="val_tag_outline">Outline (Shadowsocks-based)</string>
+    <string name="val_tag_byedpi">ByeDPI (TSPU bypass)</string>
+    <string name="val_tag_anti_detection">anti-detection tool</string>
+    <string name="val_anti_detection_summary">%1$d: %2$s</string>
+    <string name="val_ru_apps_summary">%1$d: %2$s</string>
+    <string name="val_ms">%1$d ms</string>
+    <string name="val_no_response">no response</string>
+    <string name="val_ru_faster">RU faster ✓ (%1$d &lt; %2$d ms)</string>
+    <string name="val_foreign_faster">foreign faster (%1$d &lt; %2$d ms)</string>
+    <string name="val_captive_portal_fail">fail</string>
+    <string name="val_open_listener">open · %1$s</string>
+    <string name="val_closed_listener">closed</string>
+    <string name="val_listener_summary">%1$d/%2$s</string>
+    <string name="val_v4_v6_info_line">v4=%1$s · v6=%2$s</string>
+    <string name="val_country_split">country split: v4=%1$s v6=%2$s</string>
+    <string name="val_asn_split">ASN split: v4=%1$s v6=%2$s</string>
+    <string name="val_aligned">aligned (%1$s / %2$s)</string>
+    <string name="val_dns_exit_info_line">exit=%1$s · dns=%2$s</string>
+    <string name="val_country_leak">country leak: exit=%1$s dns=%2$s</string>
+    <string name="val_asn_leak">ASN leak: exit=%1$s dns=%2$s</string>
+    <string name="val_v4_exit_line">country=%1$s  org=%2$s</string>
+    <string name="val_v6_exit_line">country=%1$s  org=%2$s  ip=%3$s</string>
+    <string name="val_http_exit_line">country=%1$s  org=%2$s</string>
+    <string name="val_dns_egress_line">country=%1$s  org=%2$s  ip=%3$s</string>
+    <string name="val_sim_vs_ip">SIM=%1$s IP=%2$s</string>
+    <string name="val_net_vs_ip">NET=%1$s IP=%2$s</string>
+    <string name="val_carrier_vs_asn">carrier=%1$s asn=%2$s</string>
+    <string name="val_mcc_vs_ip">MCC=%1$s IP=%2$s</string>
+    <string name="val_locale_vs_ip">locale=%1$s IP=%2$s</string>
+    <string name="val_lang_vs_ip">lang=%1$s IP=%2$s</string>
+    <string name="val_tz_vs_ip">device=%1$s ip=%2$s</string>
+    <string name="val_tz_offset_plus">+%1$d</string>
+    <string name="val_tz_offset_raw">%1$d</string>
+    <string name="val_probe_value">%1$s · %2$s · %3$s</string>
+    <string name="val_unknown">?</string>
+    <string name="val_country_transition">%1$s → %2$s</string>
+    <string name="val_country_transition_with_age">%1$s → %2$s  (%3$s)</string>
+    <string name="val_age_seconds">%1$ds ago</string>
+    <string name="val_age_minutes">%1$dm ago</string>
+    <string name="val_age_hours">%1$dh ago</string>
+    <string name="val_age_days">%1$dd ago</string>
+
+    <!-- Aggregation-helper strings inside GeoIP derive -->
+    <string name="val_no_forwarding_headers">no forwarding headers</string>
+    <string name="val_service_side_whitelisted">%1$s  (service-side, whitelisted)</string>
+    <string name="val_unknown_with_known">%1$s (also: %2$s — service-side, ignored)</string>
+    <string name="val_no_org_field">(no org field)</string>
+    <string name="val_asn_excluded">%1$s  (excluded: compared in Consistency)</string>
+    <string name="val_asn_excluded_dc">%1$s  ←  "%2$s" (excluded: compared in Consistency)</string>
+    <string name="val_asn_cdn_whitelist">%1$s  ←  CDN whitelist ("%2$s")</string>
+    <string name="val_asn_dc_match">%1$s  ←  matched "%2$s"</string>
+    <string name="val_ip_excluded">%1$s  (excluded from agreement check)</string>
+    <string name="val_no_fields">(provider does not expose proxy/hosting/vpn fields)</string>
+    <string name="val_transparent_proxy_hits">%1$d unknown hits</string>
+    <string name="val_transparent_proxy_none">none (or all whitelisted)</string>
+
+    <!-- STUN values -->
+    <string name="val_stun_no_response">no STUN response</string>
+    <string name="val_stun_no_v4_exit">%1$s:%2$d (no HTTP v4 exit known)</string>
+    <string name="val_stun_matches">%1$s:%2$d (matches HTTP exit)</string>
+    <string name="val_stun_bypass">%1$s ≠ %2$s  (UDP bypass)</string>
+    <string name="val_stun_no_response_line">(no response in %1$dms)</string>
+
+    <!-- Reference-parity values -->
+    <string name="val_ref_no_ip">no usable IP returned</string>
+    <string name="val_ref_winner">%1$s -&gt; %2$s</string>
+    <string name="val_ref_hosts_reachable">%1$d/%2$d reachable</string>
+    <string name="val_ref_hosts_reachable_with_missing">%1$d/%2$d reachable · missing: %3$s</string>
+    <string name="val_ref_skipped">skipped (winner already chosen: %1$s -&gt; %2$s)</string>
+    <string name="val_ref_winner_line">%1$s  (HTTP %2$s; %3$s)</string>
+    <string name="val_ref_seen">seen by parallel probes</string>
+    <string name="val_ref_not_seen">not seen by parallel probes</string>
+    <string name="val_ref_loopback_rejected">%1$s rejected (loopback)</string>
+    <string name="val_ref_no_ip_parsed">no IP parsed (HTTP %1$s)</string>
+    <string name="val_ref_reachable">reachable on tcp/%1$d (%2$s)</string>
+    <string name="val_ref_unreachable">unreachable via %1$s · %2$s</string>
+
+    <!-- Router egress values -->
+    <string name="val_router_sim_suffix">  (SIM=%1$s)</string>
+
+    <!-- DetailEntry source labels -->
+    <string name="det_v4_exit">v4 exit</string>
+    <string name="det_v6_exit">v6 exit</string>
+    <string name="det_http_exit">HTTP exit</string>
+    <string name="det_dns_resolver_egress">DNS resolver egress</string>
+    <string name="det_default_routes">default routes</string>
+    <string name="det_routes_via_tunnel">routes via tunnel iface</string>
+    <string name="det_total_routes">total routes</string>
+    <string name="det_stun_server">STUN server</string>
+    <string name="det_stun_xor_mapped">XOR-MAPPED-ADDRESS</string>
+    <string name="det_http_v4_exit">HTTP v4 exit (ipify/etc.)</string>
+    <string name="det_unknown">(unknown)</string>
+    <string name="det_parallel_probes">parallel probes</string>
+    <string name="det_router_hop">%1$s (%2$s) · hop %3$d</string>
+    <string name="det_lat_prefixed">[%1$s] %2$s</string>
+    <string name="det_group_ru">RU</string>
+    <string name="det_group_foreign">foreign</string>
+
+    <!-- Severity label short (used in toShareText and logcat) -->
+    <string name="sev_label_fail">FAIL</string>
+    <string name="sev_label_warn">WARN</string>
+    <string name="sev_label_pass">PASS</string>
+    <string name="sev_label_info">INFO</string>
+
+    <!-- Check labels -->
+    <string name="check_transport_vpn_label">TRANSPORT_VPN flag</string>
+    <string name="check_cap_not_vpn_label">NET_CAPABILITY_NOT_VPN</string>
+    <string name="check_tun_iface_label">Tunnel interfaces present</string>
+    <string name="check_active_iface_name_label">Active interface name</string>
+    <string name="check_default_route_tun_label">Default route via tunnel</string>
+    <string name="check_http_proxy_label">HTTP proxy on link</string>
+    <string name="check_private_dns_label">Private DNS (DoT)</string>
+    <string name="check_dns_servers_label">DNS servers</string>
+    <string name="check_always_on_vpn_label">Always-on VPN</string>
+    <string name="check_installed_vpn_apps_label">Known VPN clients installed</string>
+    <string name="check_anti_detection_apps_label">Anti-detection toolchain installed</string>
+    <string name="check_mtu_label">Active iface MTU</string>
+    <string name="check_mock_location_label">Mock location</string>
+    <string name="check_dev_options_label">Developer options / ADB</string>
+    <string name="check_active_transport_label">Active transport</string>
+    <string name="check_root_label">Root indicators</string>
+    <string name="check_wifi_ssid_label">Wi-Fi SSID</string>
+    <string name="check_jvm_proxy_label">JVM proxy properties</string>
+    <string name="check_vpn_transport_info_label">VpnTransportInfo</string>
+    <string name="check_route_anomalies_label">Routing table anomalies</string>
+    <string name="check_dumpsys_vpn_label">dumpsys vpn_management</string>
+    <string name="check_telegram_present_label">Telegram presence</string>
+    <string name="check_probe_label">Probe: %1$s</string>
+    <string name="check_external_country_label">External country</string>
+    <string name="check_asn_class_label">ASN organisation</string>
+    <string name="check_reputation_flag_label">Probe reputation flag</string>
+    <string name="check_probe_ip_agreement_label">Probe IP agreement</string>
+    <string name="check_probe_country_agreement_label">Probe country agreement</string>
+    <string name="check_transparent_proxy_headers_label">Transparent proxy headers</string>
+    <string name="check_country_history_stable_label">External country stable across runs</string>
+    <string name="check_country_history_changed_label">External country changed across runs</string>
+    <string name="check_sim_vs_ip_label">SIM country vs IP country</string>
+    <string name="check_net_vs_ip_label">Network country vs IP country</string>
+    <string name="check_carrier_vs_asn_label">Carrier vs ASN organisation</string>
+    <string name="check_mcc_vs_ip_label">MCC vs IP country</string>
+    <string name="check_locale_vs_ip_label">Locale country vs IP</string>
+    <string name="check_lang_vs_ip_label">Language vs IP country</string>
+    <string name="check_tz_vs_ip_label">Timezone vs IP timezone</string>
+    <string name="check_tz_offset_label">Device UTC offset</string>
+    <string name="check_ru_apps_label">Russian apps installed</string>
+    <string name="check_v4_v6_exit_split_label">IPv4 vs IPv6 exit split</string>
+    <string name="check_dns_vs_exit_label">DNS resolver vs HTTP exit</string>
+    <string name="check_lat_ru_label">Latency to RU anchors (median)</string>
+    <string name="check_lat_foreign_label">Latency to foreign anchors (median)</string>
+    <string name="check_lat_ratio_label">RU vs foreign latency ordering</string>
+    <string name="check_ipv6_label">IPv6 external address</string>
+    <string name="check_local_addrs_label">Local addresses</string>
+    <string name="check_captive_portal_label">Captive portal probe (gstatic 204)</string>
+    <string name="check_local_proxy_listeners_label">Local proxy listeners</string>
+    <string name="check_router_egress_country_label">Router egress traceroute</string>
+    <string name="check_router_egress_country_label_n">Router egress traceroute (%1$d targets)</string>
+    <string name="check_stun_mapped_vs_exit_label">STUN mapped address vs HTTP exit</string>
+    <string name="check_ref_ip_first_success_label">Reference first-success IP collector</string>
+    <string name="check_ref_host_reachability_label">HOST_REACHABILITY parity hosts</string>
+
+    <!-- Check explanations -->
+    <string name="check_transport_vpn_explanation">ConnectivityManager.hasTransport(TRANSPORT_VPN). If true any local VPN client is active. The single most-checked anti-fraud signal.</string>
+    <string name="check_cap_not_vpn_explanation_none">Cannot evaluate while offline / between network handoffs.</string>
+    <string name="check_cap_not_vpn_explanation">Mirror of TRANSPORT_VPN. SDKs check both to defeat naive bypasses.</string>
+    <string name="check_tun_iface_explanation">Any tun/tap/wg/utun/ppp/ipsec interface that is UP indicates a local VPN or IPsec/IKEv2 tunnel client.</string>
+    <string name="check_active_iface_name_explanation">Active network\'s interface name. wlan*/rmnet*/ccmni* are normal; tun/wg/utun/ppp/ipsec indicate VPN.</string>
+    <string name="check_default_route_tun_explanation">0.0.0.0/0 via tun OR the 0.0.0.0/1 + 128.0.0.0/1 trick (WireGuard signature).</string>
+    <string name="check_http_proxy_explanation">LinkProperties.httpProxy. Any value = system-wide HTTP proxy, treated as VPN by SDKs.</string>
+    <string name="check_private_dns_explanation">Non-operator DoT (Cloudflare/Google/AdGuard) is an anti-fraud penalty.</string>
+    <string name="check_dns_servers_explanation">System DNS resolvers. Public providers (1.1.1.1, 8.8.8.8, AdGuard, Quad9) flag.</string>
+    <string name="check_always_on_vpn_explanation">Settings.Secure always_on_vpn_app + always_on_vpn_lockdown.</string>
+    <string name="check_installed_vpn_apps_explanation">PackageManager scan for generic commercial VPN client package names. SOFT because these have legitimate work / privacy uses.</string>
+    <string name="check_anti_detection_apps_explanation">Packages purpose-built to defeat client-side VPN detection: AmneziaWG (WG with junk-packet obfuscation), Xray/VLESS-Reality (TLS-mimicking transport), NekoBox / sing-box / SagerNet (Xray GUIs), Clash/Mihomo, Shadowsocks(R), Outline, ByeDPI (TSPU bypass). Unlike generic VPN clients these have no \'I need a VPN for work\' use case — installation implies intent to bypass anti-VPN measures.</string>
+    <string name="check_mtu_explanation">Typical WG=1420, AmneziaWG≈1380, raw v4 MTU 1280. Non-1500 on Wi-Fi is suspicious.</string>
+    <string name="check_mock_location_explanation">Banks penalize mock-location-capable devices.</string>
+    <string name="check_dev_options_explanation">Diagnostic context. Often co-occurs with VPN setups but not a VPN signal itself.</string>
+    <string name="check_active_transport_explanation">Used by other tabs to interpret consistency checks.</string>
+    <string name="check_root_explanation">Heuristic: su binary or Magisk presence. Combined with VPN amplifies suspicion.</string>
+    <string name="check_wifi_ssid_explanation">Diagnostic — useful to tag history entries by location.</string>
+    <string name="check_jvm_proxy_explanation">System.getProperty(http.proxyHost / https.proxyHost / socksProxyHost). Per-process proxy hosts that LinkProperties.httpProxy does not see.</string>
+    <string name="check_vpn_transport_info_explanation">NetworkCapabilities.transportInfo on API 31+. When non-null and of type VpnTransportInfo it exposes the VPN session id, type, and bypassable flag for the active VPN.</string>
+    <string name="check_route_anomalies_explanation">Multiple default routes or routes via tun/wg/utun/ppp/ipsec are indirect signs of split-tunnel / corp VPN / fork VPN setups.</string>
+    <string name="check_dumpsys_vpn_explanation">Runtime.exec(dumpsys vpn_management). Lists active VPN packages on Android 12+. Regular apps usually get denied; on userdebug builds and some OEMs the call succeeds.</string>
+    <string name="check_telegram_present_explanation">Weak signal: Telegram is recurrently throttled / blocked in RU. A user who keeps Telegram installed and uses it routinely is likely bypassing those restrictions (router VPN, MTProto proxy, etc.). Running-state detection needs Usage Access permission (Settings → Apps → Special access → Usage access).</string>
+    <string name="check_probe_explanation">Raw GeoIP probe result.</string>
+    <string name="check_external_country_explanation">What the world sees. PASS only on RU. Real verdict comes from Consistency tab.</string>
+    <string name="check_asn_class_explanation">Datacenter ASNs (DigitalOcean/AWS/Hetzner/OVH/etc.) = HARD VPN signal. Residential ISP ASNs are clean. CDN ASNs (Cloudflare, Akamai, Fastly, CloudFront) are whitelisted to suppress false positives. Tap to see what each probe returned.</string>
+    <string name="check_reputation_flag_explanation">Anti-fraud flag from a GeoIP probe. ip-api.com returns proxy/hosting; Cloudflare cdn-cgi/trace exposes warp=on/gateway=on (treated as vpn=true). Tap to see which provider returned what.</string>
+    <string name="check_probe_ip_agreement_explanation">Different probes seeing different external IPs = split routing leak.</string>
+    <string name="check_probe_country_agreement_explanation">Probes returned same IP but different country (GeoIP DB lag).</string>
+    <string name="check_transparent_proxy_headers_explanation">Methodology §10.2 — Via / X-Forwarded-For / Forwarded headers added to probe responses indicate a transparent proxy on the path. Known service-side infrastructure (Google Cloud LB \'via=1.1 google\', Fastly varnish, CloudFront, Akamai, nginx, Cloudflare, Envoy, etc.) is whitelisted because the methodology itself warns those are legitimately added by the service or its CDN.</string>
+    <string name="check_country_history_stable_explanation">Methodology §5.4 step 5 — comparison with history. External country has not changed between consecutive runs.</string>
+    <string name="check_country_history_changed_explanation">Methodology §5.4 step 5 — comparison with history. External country flipped between consecutive runs. &lt;1h gap = HARD (no plausible travel), &lt;12h = SOFT (possible travel), more = INFO.</string>
+    <string name="check_sim_vs_ip_explanation">TelephonyManager.simCountryIso vs GeoIP. The leak: SIM=RU, IP=US.</string>
+    <string name="check_net_vs_ip_explanation">TelephonyManager.networkCountryIso (cell tower country) vs GeoIP.</string>
+    <string name="check_carrier_vs_asn_explanation">RU mobile operator on SIM but exit ASN is foreign datacenter.</string>
+    <string name="check_mcc_vs_ip_explanation">MCC 250 = Russia. Mismatch with IP country = HARD.</string>
+    <string name="check_locale_vs_ip_explanation">System locale region vs external country.</string>
+    <string name="check_lang_vs_ip_explanation">ru-language system but IP outside CIS.</string>
+    <string name="check_tz_vs_ip_explanation">TimeZone.getDefault() vs ipinfo timezone field.</string>
+    <string name="check_tz_offset_explanation">Diagnostic. Cross-check with ipinfo timezone in tz_vs_ip.</string>
+    <string name="check_ru_apps_explanation">Strong fingerprint: many Russian banking/social apps + non-RU IP.</string>
+    <string name="check_v4_v6_exit_split_explanation">Router-side VPNs typically tunnel IPv4 only, leaving IPv6 on the native ISP. If v4 and v6 exit in different countries (HARD) or different ASNs (SOFT) the device is on a partial/asymmetric tunnel — a signature anti-fraud SDKs catch by dual-stack probing. INFO when v6 is not reachable (single-stack network).</string>
+    <string name="check_dns_vs_exit_explanation">whoami.akamai.net returns the recursive DNS resolver\'s egress IP. If the resolver egresses in a different country than the HTTP exit, DNS is bypassing the tunnel (or the router is intercepting port 53 to a different upstream). SDKs that correlate DNS and HTTP geolocation flag this directly.</string>
+    <string name="check_lat_ru_explanation">yandex.ru / mail.ru / gosuslugi.ru. Supplementary signal (methodology §10.1). Cellular networks have high baseline latency, so this is capped at SOFT and only fires above 400ms. Tap to see per-host latency.</string>
+    <string name="check_lat_foreign_explanation">google / cloudflare / apple. Supplementary signal (methodology §10.1). Modern CDNs have PoPs close to RU mobile operators, so foreign latency alone is weak. Capped at SOFT and only fires below 20ms. Tap to see per-host latency.</string>
+    <string name="check_lat_ratio_explanation">From a real RU connection RU anchors are often faster than foreign, but modern CDNs (Google, Cloudflare) frequently have PoPs closer to the operator\'s core than the RU origin servers themselves. Reversed ordering alone does not indicate VPN; downgraded to INFO. Tap to see per-host measurements.</string>
+    <string name="check_ipv6_explanation">Diagnostic. Split tunnels often leak v6 — compare with v4 country in GeoIP tab.</string>
+    <string name="check_local_addrs_explanation">All non-loopback link-local addresses on every interface.</string>
+    <string name="check_captive_portal_explanation">Non-204 indicates a captive portal or middlebox interception.</string>
+    <string name="check_local_proxy_listeners_explanation">TCP-connects to 127.0.0.1 on the proxy ports listed in the methodology (SOCKS 1080/9000, Tor 9050/9051/9150, HTTP 3128/8080/8888, transparent 4080/7000/12345, Shadowsocks/V2Ray local 1081/1086, etc.). Any successful connect = a proxy is running on the device. SELinux blocks /proc/net/tcp enumeration, so this is the only fully reliable way for an unprivileged app to detect other-uid loopback listeners.</string>
+    <string name="check_router_egress_country_no_hops">Some carrier networks drop ICMP TTL exceeded entirely, so traceroute cannot map the path on this connection.</string>
+    <string name="check_router_egress_country_explanation">Maps the L3 path to %1$s via /system/bin/ping -t N. Rule: each target\'s first non-RFC1918 hop country must match the SIM country. A foreign hop means the router tunnels that destination through a VPN. Probing both foreign (Cloudflare, Google) and RU (Yandex) anchors exposes split / whitelist-routing setups where only some destinations are tunnelled. Tap to see every hop per target.</string>
+    <string name="check_stun_mapped_vs_exit_explanation">RFC 5389 Binding Request to stun.l.google.com:19302. Fraud SDKs run the equivalent via WebRTC in a hidden iframe and correlate the UDP mapped address with the HTTP exit. Router VPNs that only tunnel TCP — or VPNs configured to bypass UDP — produce a mismatch here that is not visible in any HTTP-based probe. %1$s</string>
+    <string name="check_stun_suffix_no_response">UDP 19302 may be blocked upstream or blackholed — indeterminate, not scored.</string>
+    <string name="check_stun_suffix_no_v4_exit">We have no v4 HTTP exit to compare against.</string>
+    <string name="check_stun_suffix_matches">UDP and HTTP share the same public exit — no split-tunnel observable.</string>
+    <string name="check_stun_suffix_bypass">UDP egress differs from HTTP egress — classic router-VPN / split-tunnel signature. WebRTC STUN reveals the native ISP IP while HTTP rides the tunnel.</string>
+    <string name="check_ref_ip_first_success_explanation">Mirrors the reference-messenger IP collector documented in public RU anti-fraud research: the exact six endpoints are shuffled, queried over low-level sockets, and the first endpoint returning a non-loopback IP wins. This row is parity-focused; the full GeoIP tab remains the authoritative, richer view.</string>
+    <string name="check_ref_host_reachability_explanation">Mirrors the five-host reachability fingerprint documented in public RU anti-fraud research: api.oneme.ru, gstatic.com, mtalk.google.com, calls.okcdn.ru, gosuslugi.ru. The app records simple booleans here because the pattern is primarily useful together with VPN flag, operator, and exit IP, not as a standalone verdict signal.</string>
 </resources>

@@ -2,6 +2,8 @@ package net.vpndetector.detect.consistency
 
 import android.content.Context
 import android.telephony.TelephonyManager
+import net.vpndetector.AppStrings
+import net.vpndetector.R
 import net.vpndetector.detect.Category
 import net.vpndetector.detect.Check
 import net.vpndetector.detect.DetailEntry
@@ -37,6 +39,8 @@ object ConsistencyChecks {
         // require READ_PHONE_STATE on any modern Android — keep these checks ungated.
         val tm = ctx.getSystemService(Context.TELEPHONY_SERVICE) as? TelephonyManager
 
+        val unknown = AppStrings.get(R.string.val_unknown)
+
         // 1. SIM country vs IP country
         run {
             val sim = tm?.simCountryIso?.uppercase().orEmpty()
@@ -44,10 +48,10 @@ object ConsistencyChecks {
             out += Check(
                 id = "sim_vs_ip",
                 category = Category.CONSISTENCY,
-                label = "SIM country vs IP country",
-                value = "SIM=${sim.ifEmpty { "?" }} IP=${ipCountry ?: "?"}",
+                label = AppStrings.get(R.string.check_sim_vs_ip_label),
+                value = AppStrings.get(R.string.val_sim_vs_ip, sim.ifEmpty { unknown }, ipCountry ?: unknown),
                 severity = if (mismatch) Severity.HARD else Severity.PASS,
-                explanation = "TelephonyManager.simCountryIso vs GeoIP. The leak: SIM=RU, IP=US.",
+                explanation = AppStrings.get(R.string.check_sim_vs_ip_explanation),
             )
         }
 
@@ -58,10 +62,10 @@ object ConsistencyChecks {
             out += Check(
                 id = "net_vs_ip",
                 category = Category.CONSISTENCY,
-                label = "Network country vs IP country",
-                value = "NET=${net.ifEmpty { "?" }} IP=${ipCountry ?: "?"}",
+                label = AppStrings.get(R.string.check_net_vs_ip_label),
+                value = AppStrings.get(R.string.val_net_vs_ip, net.ifEmpty { unknown }, ipCountry ?: unknown),
                 severity = if (mismatch) Severity.HARD else Severity.PASS,
-                explanation = "TelephonyManager.networkCountryIso (cell tower country) vs GeoIP.",
+                explanation = AppStrings.get(R.string.check_net_vs_ip_explanation),
             )
         }
 
@@ -77,10 +81,10 @@ object ConsistencyChecks {
             out += Check(
                 id = "carrier_vs_asn",
                 category = Category.CONSISTENCY,
-                label = "Carrier vs ASN organisation",
-                value = "carrier=${carrier.ifEmpty { "?" }} asn=${ipOrg ?: "?"}",
+                label = AppStrings.get(R.string.check_carrier_vs_asn_label),
+                value = AppStrings.get(R.string.val_carrier_vs_asn, carrier.ifEmpty { unknown }, ipOrg ?: unknown),
                 severity = if (mismatch) Severity.HARD else Severity.PASS,
-                explanation = "RU mobile operator on SIM but exit ASN is foreign datacenter.",
+                explanation = AppStrings.get(R.string.check_carrier_vs_asn_explanation),
             )
         }
 
@@ -92,10 +96,10 @@ object ConsistencyChecks {
             out += Check(
                 id = "mcc_vs_ip",
                 category = Category.CONSISTENCY,
-                label = "MCC vs IP country",
-                value = "MCC=${mcc.ifEmpty { "?" }} IP=${ipCountry ?: "?"}",
+                label = AppStrings.get(R.string.check_mcc_vs_ip_label),
+                value = AppStrings.get(R.string.val_mcc_vs_ip, mcc.ifEmpty { unknown }, ipCountry ?: unknown),
                 severity = if (mismatch) Severity.HARD else Severity.PASS,
-                explanation = "MCC 250 = Russia. Mismatch with IP country = HARD.",
+                explanation = AppStrings.get(R.string.check_mcc_vs_ip_explanation),
             )
         }
 
@@ -106,10 +110,10 @@ object ConsistencyChecks {
             out += Check(
                 id = "locale_vs_ip",
                 category = Category.CONSISTENCY,
-                label = "Locale country vs IP",
-                value = "locale=$lc IP=${ipCountry ?: "?"}",
+                label = AppStrings.get(R.string.check_locale_vs_ip_label),
+                value = AppStrings.get(R.string.val_locale_vs_ip, lc, ipCountry ?: unknown),
                 severity = if (mismatch) Severity.SOFT else Severity.PASS,
-                explanation = "System locale region vs external country.",
+                explanation = AppStrings.get(R.string.check_locale_vs_ip_explanation),
             )
         }
 
@@ -121,10 +125,10 @@ object ConsistencyChecks {
             out += Check(
                 id = "lang_vs_ip",
                 category = Category.CONSISTENCY,
-                label = "Language vs IP country",
-                value = "lang=$lang IP=${ipCountry ?: "?"}",
+                label = AppStrings.get(R.string.check_lang_vs_ip_label),
+                value = AppStrings.get(R.string.val_lang_vs_ip, lang, ipCountry ?: unknown),
                 severity = if (mismatch) Severity.SOFT else Severity.PASS,
-                explanation = "ru-language system but IP outside CIS.",
+                explanation = AppStrings.get(R.string.check_lang_vs_ip_explanation),
             )
         }
 
@@ -135,28 +139,28 @@ object ConsistencyChecks {
             out += Check(
                 id = "tz_vs_ip",
                 category = Category.CONSISTENCY,
-                label = "Timezone vs IP timezone",
-                value = "device=$tz ip=${ipTz ?: "?"}",
+                label = AppStrings.get(R.string.check_tz_vs_ip_label),
+                value = AppStrings.get(R.string.val_tz_vs_ip, tz, ipTz ?: unknown),
                 severity = when {
                     ipTz == null -> Severity.INFO
                     mismatch -> Severity.SOFT
                     else -> Severity.PASS
                 },
-                explanation = "TimeZone.getDefault() vs ipinfo timezone field.",
+                explanation = AppStrings.get(R.string.check_tz_vs_ip_explanation),
             )
         }
 
         // 8. Timezone offset vs IP offset (rough)
         run {
             val deviceOff = TimeZone.getDefault().rawOffset / 3_600_000
-            // We don't have a numeric offset from probes; mark INFO unless we can compare via tz id
             out += Check(
                 id = "tz_offset",
                 category = Category.CONSISTENCY,
-                label = "Device UTC offset",
-                value = "${if (deviceOff >= 0) "+" else ""}$deviceOff",
+                label = AppStrings.get(R.string.check_tz_offset_label),
+                value = if (deviceOff >= 0) AppStrings.get(R.string.val_tz_offset_plus, deviceOff)
+                    else AppStrings.get(R.string.val_tz_offset_raw, deviceOff),
                 severity = Severity.INFO,
-                explanation = "Diagnostic. Cross-check with ipinfo timezone in tz_vs_ip.",
+                explanation = AppStrings.get(R.string.check_tz_offset_explanation),
             )
         }
 
@@ -176,10 +180,11 @@ object ConsistencyChecks {
             out += Check(
                 id = "ru_apps",
                 category = Category.CONSISTENCY,
-                label = "Russian apps installed",
-                value = if (found.isEmpty()) "none" else "${found.size}: ${found.take(3).joinToString()}",
+                label = AppStrings.get(R.string.check_ru_apps_label),
+                value = if (found.isEmpty()) AppStrings.get(R.string.val_none)
+                    else AppStrings.get(R.string.val_ru_apps_summary, found.size, found.take(3).joinToString()),
                 severity = if (mismatch) Severity.SOFT else Severity.INFO,
-                explanation = "Strong fingerprint: many Russian banking/social apps + non-RU IP.",
+                explanation = AppStrings.get(R.string.check_ru_apps_explanation),
             )
         }
 
@@ -207,28 +212,37 @@ object ConsistencyChecks {
                 else -> Severity.PASS
             }
             val details = listOf(
-                DetailEntry("v4 exit", "country=${v4Country ?: "?"}  org=${v4Org ?: "?"}", Severity.INFO),
-                DetailEntry("v6 exit",
-                    if (v6Probe == null) "no v6 probe"
-                    else if (v6Probe.error != null) "ERROR: ${v6Probe.error}"
-                    else "country=${v6Country ?: "?"}  org=${v6Org ?: "?"}  ip=${v6Probe.ip}",
-                    if (countryMismatch) Severity.HARD else if (orgMismatch) Severity.SOFT else Severity.INFO),
+                DetailEntry(
+                    AppStrings.get(R.string.det_v4_exit),
+                    AppStrings.get(R.string.val_v4_exit_line, v4Country ?: unknown, v4Org ?: unknown),
+                    Severity.INFO,
+                ),
+                DetailEntry(
+                    AppStrings.get(R.string.det_v6_exit),
+                    when {
+                        v6Probe == null -> AppStrings.get(R.string.val_no_v6_probe)
+                        v6Probe.error != null -> AppStrings.get(R.string.val_error_prefix, v6Probe.error)
+                        else -> AppStrings.get(R.string.val_v6_exit_line, v6Country ?: unknown, v6Org ?: unknown, v6Probe.ip ?: unknown)
+                    },
+                    if (countryMismatch) Severity.HARD else if (orgMismatch) Severity.SOFT else Severity.INFO,
+                ),
             )
             out += Check(
                 id = "v4_v6_exit_split",
                 category = Category.CONSISTENCY,
-                label = "IPv4 vs IPv6 exit split",
+                label = AppStrings.get(R.string.check_v4_v6_exit_split_label),
                 value = when {
-                    !haveBoth -> "v4=${v4Country ?: "?"} · v6=${v6Probe?.error ?: v6Country ?: "n/a"}"
-                    countryMismatch -> "country split: v4=$v4Country v6=$v6Country"
-                    orgMismatch -> "ASN split: v4=$v4Org v6=$v6Org"
-                    else -> "aligned ($v4Country / ${v4Org ?: "?"})"
+                    !haveBoth -> AppStrings.get(
+                        R.string.val_v4_v6_info_line,
+                        v4Country ?: unknown,
+                        v6Probe?.error ?: v6Country ?: AppStrings.get(R.string.val_na),
+                    )
+                    countryMismatch -> AppStrings.get(R.string.val_country_split, v4Country ?: unknown, v6Country ?: unknown)
+                    orgMismatch -> AppStrings.get(R.string.val_asn_split, v4Org ?: unknown, v6Org ?: unknown)
+                    else -> AppStrings.get(R.string.val_aligned, v4Country ?: unknown, v4Org ?: unknown)
                 },
                 severity = sev,
-                explanation = "Router-side VPNs typically tunnel IPv4 only, leaving IPv6 on the native " +
-                    "ISP. If v4 and v6 exit in different countries (HARD) or different ASNs (SOFT) the " +
-                    "device is on a partial/asymmetric tunnel — a signature anti-fraud SDKs catch by " +
-                    "dual-stack probing. INFO when v6 is not reachable (single-stack network).",
+                explanation = AppStrings.get(R.string.check_v4_v6_exit_split_explanation),
                 details = details,
             )
         }
@@ -255,28 +269,42 @@ object ConsistencyChecks {
                 else -> Severity.PASS
             }
             val details = listOf(
-                DetailEntry("HTTP exit", "country=${ipCountry ?: "?"}  org=${ipOrg ?: "?"}", Severity.INFO),
-                DetailEntry("DNS resolver egress",
-                    if (resolver == null) "no probe"
-                    else if (resolver.error != null) "ERROR: ${resolver.error}"
-                    else "country=${rCountry ?: "?"}  org=${rOrg ?: "?"}  ip=${resolver.ip}",
-                    if (countryMismatch) Severity.HARD else if (orgMismatch) Severity.SOFT else Severity.INFO),
+                DetailEntry(
+                    AppStrings.get(R.string.det_http_exit),
+                    AppStrings.get(R.string.val_http_exit_line, ipCountry ?: unknown, ipOrg ?: unknown),
+                    Severity.INFO,
+                ),
+                DetailEntry(
+                    AppStrings.get(R.string.det_dns_resolver_egress),
+                    when {
+                        resolver == null -> AppStrings.get(R.string.val_no_probe)
+                        resolver.error != null -> AppStrings.get(R.string.val_error_prefix, resolver.error)
+                        else -> AppStrings.get(
+                            R.string.val_dns_egress_line,
+                            rCountry ?: unknown,
+                            rOrg ?: unknown,
+                            resolver.ip ?: unknown,
+                        )
+                    },
+                    if (countryMismatch) Severity.HARD else if (orgMismatch) Severity.SOFT else Severity.INFO,
+                ),
             )
             out += Check(
                 id = "dns_vs_exit",
                 category = Category.CONSISTENCY,
-                label = "DNS resolver vs HTTP exit",
+                label = AppStrings.get(R.string.check_dns_vs_exit_label),
                 value = when {
-                    !haveBoth -> "exit=${ipCountry ?: "?"} · dns=${resolver?.error ?: rCountry ?: "n/a"}"
-                    countryMismatch -> "country leak: exit=$ipCountry dns=$rCountry"
-                    orgMismatch -> "ASN leak: exit=$ipOrg dns=$rOrg"
-                    else -> "aligned ($ipCountry / ${ipOrg ?: "?"})"
+                    !haveBoth -> AppStrings.get(
+                        R.string.val_dns_exit_info_line,
+                        ipCountry ?: unknown,
+                        resolver?.error ?: rCountry ?: AppStrings.get(R.string.val_na),
+                    )
+                    countryMismatch -> AppStrings.get(R.string.val_country_leak, ipCountry ?: unknown, rCountry ?: unknown)
+                    orgMismatch -> AppStrings.get(R.string.val_asn_leak, ipOrg ?: unknown, rOrg ?: unknown)
+                    else -> AppStrings.get(R.string.val_aligned, ipCountry ?: unknown, ipOrg ?: unknown)
                 },
                 severity = sev,
-                explanation = "whoami.akamai.net returns the recursive DNS resolver's egress IP. If the " +
-                    "resolver egresses in a different country than the HTTP exit, DNS is bypassing the " +
-                    "tunnel (or the router is intercepting port 53 to a different upstream). SDKs that " +
-                    "correlate DNS and HTTP geolocation flag this directly.",
+                explanation = AppStrings.get(R.string.check_dns_vs_exit_explanation),
                 details = details,
             )
         }

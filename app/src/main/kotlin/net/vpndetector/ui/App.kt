@@ -23,24 +23,27 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import net.vpndetector.R
 import net.vpndetector.detect.Category
+import net.vpndetector.detect.VerdictLevel
 import net.vpndetector.ui.history.HistoryScreen
 import net.vpndetector.ui.tabs.CategoryTab
 import net.vpndetector.ui.verdict.VerdictBar
 
-private data class Tab(val route: String, val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector)
+private data class Tab(val route: String, val labelRes: Int, val icon: androidx.compose.ui.graphics.vector.ImageVector)
 
 private val TABS = listOf(
-    Tab("system", "System", Icons.Filled.Router),
-    Tab("geoip", "GeoIP", Icons.Filled.Public),
-    Tab("consistency", "Consistency", Icons.Filled.SwapHoriz),
-    Tab("probes", "Probes", Icons.Filled.Sensors),
-    Tab("history", "History", Icons.Filled.History),
+    Tab("system", R.string.ui_tab_system, Icons.Filled.Router),
+    Tab("geoip", R.string.ui_tab_geoip, Icons.Filled.Public),
+    Tab("consistency", R.string.ui_tab_consistency, Icons.Filled.SwapHoriz),
+    Tab("probes", R.string.ui_tab_probes, Icons.Filled.Sensors),
+    Tab("history", R.string.ui_tab_history, Icons.Filled.History),
 )
 
 @Composable
@@ -50,6 +53,15 @@ fun App(vm: AppViewModel = viewModel()) {
     val current by vm.current.collectAsStateWithLifecycle()
     val running by vm.running.collectAsStateWithLifecycle()
     val ctx = LocalContext.current
+    val shareSubjectFormat = stringResource(R.string.ui_share_subject)
+    val shareChooserTitle = stringResource(R.string.ui_share_chooser_title)
+    val runText = stringResource(R.string.ui_fab_run)
+    val runningText = stringResource(R.string.ui_fab_running)
+    val verdictTexts = mapOf(
+        VerdictLevel.CLEAN to stringResource(R.string.verdict_clean),
+        VerdictLevel.SUSPICIOUS to stringResource(R.string.verdict_suspicious),
+        VerdictLevel.DETECTED to stringResource(R.string.verdict_detected),
+    )
 
     Scaffold(
         topBar = {
@@ -59,10 +71,13 @@ fun App(vm: AppViewModel = viewModel()) {
                     {
                         val send = Intent(Intent.ACTION_SEND).apply {
                             type = "text/plain"
-                            putExtra(Intent.EXTRA_SUBJECT, "vpn-detector run · ${run.verdict.level}")
+                            putExtra(
+                                Intent.EXTRA_SUBJECT,
+                                String.format(shareSubjectFormat, verdictTexts[run.verdict.level] ?: ""),
+                            )
                             putExtra(Intent.EXTRA_TEXT, run.toShareText())
                         }
-                        ctx.startActivity(Intent.createChooser(send, "Share results"))
+                        ctx.startActivity(Intent.createChooser(send, shareChooserTitle))
                     }
                 },
             )
@@ -70,6 +85,7 @@ fun App(vm: AppViewModel = viewModel()) {
         bottomBar = {
             NavigationBar {
                 TABS.forEach { tab ->
+                    val label = stringResource(tab.labelRes)
                     val selected = backStack?.destination?.route == tab.route
                     NavigationBarItem(
                         selected = selected,
@@ -80,8 +96,8 @@ fun App(vm: AppViewModel = viewModel()) {
                                 restoreState = true
                             }
                         },
-                        icon = { Icon(tab.icon, contentDescription = tab.label) },
-                        label = { Text(tab.label) },
+                        icon = { Icon(tab.icon, contentDescription = label) },
+                        label = { Text(label) },
                     )
                 }
             }
@@ -90,7 +106,7 @@ fun App(vm: AppViewModel = viewModel()) {
             ExtendedFloatingActionButton(
                 onClick = { vm.runAll() },
                 icon = { Icon(if (running) Icons.Filled.Cable else Icons.Filled.Refresh, null) },
-                text = { Text(if (running) "Running…" else "Run all checks") },
+                text = { Text(if (running) runningText else runText) },
             )
         },
     ) { padding ->

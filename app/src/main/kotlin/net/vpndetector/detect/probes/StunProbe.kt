@@ -2,6 +2,8 @@ package net.vpndetector.detect.probes
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import net.vpndetector.AppStrings
+import net.vpndetector.R
 import net.vpndetector.detect.Category
 import net.vpndetector.detect.Check
 import net.vpndetector.detect.DetailEntry
@@ -48,40 +50,53 @@ object StunProbe {
 
         val (value, severity, explanationSuffix) = when {
             mapped == null ->
-                Triple("no STUN response", Severity.INFO,
-                    "UDP 19302 may be blocked upstream or blackholed — indeterminate, not scored.")
+                Triple(
+                    AppStrings.get(R.string.val_stun_no_response),
+                    Severity.INFO,
+                    AppStrings.get(R.string.check_stun_suffix_no_response),
+                )
             httpExitV4 == null ->
-                Triple("${mapped.first}:${mapped.second} (no HTTP v4 exit known)", Severity.INFO,
-                    "We have no v4 HTTP exit to compare against.")
+                Triple(
+                    AppStrings.get(R.string.val_stun_no_v4_exit, mapped.first, mapped.second),
+                    Severity.INFO,
+                    AppStrings.get(R.string.check_stun_suffix_no_v4_exit),
+                )
             mapped.first == httpExitV4 ->
-                Triple("${mapped.first}:${mapped.second} (matches HTTP exit)", Severity.PASS,
-                    "UDP and HTTP share the same public exit — no split-tunnel observable.")
+                Triple(
+                    AppStrings.get(R.string.val_stun_matches, mapped.first, mapped.second),
+                    Severity.PASS,
+                    AppStrings.get(R.string.check_stun_suffix_matches),
+                )
             else ->
-                Triple("${mapped.first} ≠ $httpExitV4  (UDP bypass)", Severity.HARD,
-                    "UDP egress differs from HTTP egress — classic router-VPN / split-tunnel " +
-                        "signature. WebRTC STUN reveals the native ISP IP while HTTP rides the tunnel.")
+                Triple(
+                    AppStrings.get(R.string.val_stun_bypass, mapped.first, httpExitV4),
+                    Severity.HARD,
+                    AppStrings.get(R.string.check_stun_suffix_bypass),
+                )
         }
 
         val details = buildList {
-            add(DetailEntry("STUN server", "$STUN_HOST:$STUN_PORT", Severity.INFO))
-            add(DetailEntry("XOR-MAPPED-ADDRESS",
-                mapped?.let { "${it.first}:${it.second}" } ?: "(no response in ${SO_TIMEOUT_MS}ms)",
-                Severity.INFO))
-            add(DetailEntry("HTTP v4 exit (ipify/etc.)", httpExitV4 ?: "(unknown)", Severity.INFO))
+            add(DetailEntry(AppStrings.get(R.string.det_stun_server), "$STUN_HOST:$STUN_PORT", Severity.INFO))
+            add(DetailEntry(
+                AppStrings.get(R.string.det_stun_xor_mapped),
+                mapped?.let { "${it.first}:${it.second}" } ?: AppStrings.get(R.string.val_stun_no_response_line, SO_TIMEOUT_MS),
+                Severity.INFO,
+            ))
+            add(DetailEntry(
+                AppStrings.get(R.string.det_http_v4_exit),
+                httpExitV4 ?: AppStrings.get(R.string.det_unknown),
+                Severity.INFO,
+            ))
         }
 
         listOf(
             Check(
                 id = "stun_mapped_vs_exit",
                 category = Category.PROBES,
-                label = "STUN mapped address vs HTTP exit",
+                label = AppStrings.get(R.string.check_stun_mapped_vs_exit_label),
                 value = value,
                 severity = severity,
-                explanation = "RFC 5389 Binding Request to stun.l.google.com:19302. Fraud SDKs run " +
-                    "the equivalent via WebRTC in a hidden iframe and correlate the UDP mapped " +
-                    "address with the HTTP exit. Router VPNs that only tunnel TCP — or VPNs " +
-                    "configured to bypass UDP — produce a mismatch here that is not visible in " +
-                    "any HTTP-based probe. $explanationSuffix",
+                explanation = AppStrings.get(R.string.check_stun_mapped_vs_exit_explanation, explanationSuffix),
                 details = details,
             )
         )

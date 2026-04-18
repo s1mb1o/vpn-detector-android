@@ -29,20 +29,23 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import net.vpndetector.R
 import net.vpndetector.data.model.RunResult
 import net.vpndetector.detect.Category
 import net.vpndetector.detect.Check
 import net.vpndetector.detect.DetailEntry
 import net.vpndetector.detect.Severity
+import net.vpndetector.detect.VerdictLevel
 
 @Composable
 fun CategoryTab(run: RunResult?, category: Category) {
     if (run == null) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("No run yet")
+            Text(stringResource(R.string.ui_tab_no_run))
         }
         return
     }
@@ -79,18 +82,18 @@ private fun CheckDetailDialog(c: Check, onDismiss: () -> Unit) {
     val (_, label) = severityStyle(c.severity)
     AlertDialog(
         onDismissRequest = onDismiss,
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.ui_dialog_close)) } },
         title = { Text("[$label] ${c.label}") },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
-                LabelledBlock("ID", c.id)
-                LabelledBlock("Category", c.category.name)
-                LabelledBlock("Severity", c.severity.name)
-                LabelledBlock("Value", c.value)
-                LabelledBlock("Explanation", c.explanation)
+                LabelledBlock(stringResource(R.string.ui_dialog_id), c.id)
+                LabelledBlock(stringResource(R.string.ui_dialog_category), categoryText(c.category))
+                LabelledBlock(stringResource(R.string.ui_dialog_severity), c.severity.name)
+                LabelledBlock(stringResource(R.string.ui_dialog_value), c.value)
+                LabelledBlock(stringResource(R.string.ui_dialog_explanation), c.explanation)
                 if (c.details.isNotEmpty()) {
                     Spacer(Modifier.padding(top = 12.dp))
-                    Text("Per-source breakdown", fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.ui_dialog_details), fontWeight = FontWeight.Bold)
                     HorizontalDivider(Modifier.padding(vertical = 4.dp))
                     c.details.forEach { DetailRow(it) }
                 }
@@ -128,9 +131,25 @@ private fun LabelledBlock(label: String, value: String) {
     Text(value)
 }
 
+@Composable
 private fun severityStyle(s: Severity): Pair<Color, String> = when (s) {
-    Severity.HARD -> Color(0xFFFFCDD2) to "FAIL"
-    Severity.SOFT -> Color(0xFFFFE0B2) to "WARN"
-    Severity.PASS -> Color(0xFFC8E6C9) to "PASS"
-    Severity.INFO -> Color(0xFFE0E0E0) to "INFO"
+    Severity.HARD -> Color(0xFFFFCDD2) to stringResource(R.string.severity_fail)
+    Severity.SOFT -> Color(0xFFFFE0B2) to stringResource(R.string.severity_warn)
+    Severity.PASS -> Color(0xFFC8E6C9) to stringResource(R.string.severity_pass)
+    Severity.INFO -> Color(0xFFE0E0E0) to stringResource(R.string.severity_info)
+}
+
+@Composable
+private fun categoryText(c: Category): String = when (c) {
+    Category.SYSTEM -> stringResource(R.string.category_system)
+    Category.GEOIP -> stringResource(R.string.category_geoip)
+    Category.CONSISTENCY -> stringResource(R.string.category_consistency)
+    Category.PROBES -> stringResource(R.string.category_probes)
+}
+
+@Composable
+fun verdictLevelText(v: VerdictLevel): String = when (v) {
+    VerdictLevel.CLEAN -> stringResource(R.string.verdict_clean)
+    VerdictLevel.SUSPICIOUS -> stringResource(R.string.verdict_suspicious)
+    VerdictLevel.DETECTED -> stringResource(R.string.verdict_detected)
 }

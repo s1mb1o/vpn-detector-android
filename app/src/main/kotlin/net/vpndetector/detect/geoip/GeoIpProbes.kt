@@ -7,6 +7,8 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import okhttp3.Request
+import net.vpndetector.AppStrings
+import net.vpndetector.R
 import net.vpndetector.detect.Category
 import net.vpndetector.detect.Check
 import net.vpndetector.detect.DetailEntry
@@ -114,20 +116,22 @@ object GeoIpProbes {
         val ok = results.filter { it.error == null && it.ip != null }
         val okV4 = ok.filter { it.provider !in AGGREGATION_EXCLUDED && it.isIpv4 }
 
+        val unknown = AppStrings.get(R.string.val_unknown)
+
         // Per-probe rows
         for (r in results) {
             val v = if (r.error != null) {
-                "ERROR: ${r.error}"
+                AppStrings.get(R.string.val_error_prefix, r.error)
             } else {
-                "${r.ip ?: "?"} · ${r.country ?: "?"} · ${r.org ?: r.asn ?: "?"}"
+                AppStrings.get(R.string.val_probe_value, r.ip ?: unknown, r.country ?: unknown, r.org ?: r.asn ?: unknown)
             }
             out += Check(
                 id = "probe_${r.provider}",
                 category = Category.GEOIP,
-                label = "Probe: ${r.provider}",
+                label = AppStrings.get(R.string.check_probe_label, r.provider),
                 value = v,
                 severity = Severity.INFO,
-                explanation = "Raw GeoIP probe result.",
+                explanation = AppStrings.get(R.string.check_probe_explanation),
             )
         }
 
@@ -136,10 +140,10 @@ object GeoIpProbes {
         out += Check(
             id = "external_country",
             category = Category.GEOIP,
-            label = "External country",
-            value = country ?: "?",
+            label = AppStrings.get(R.string.check_external_country_label),
+            value = country ?: unknown,
             severity = if (country == "RU") Severity.PASS else Severity.INFO,
-            explanation = "What the world sees. PASS only on RU. Real verdict comes from Consistency tab.",
+            explanation = AppStrings.get(R.string.check_external_country_explanation),
         )
 
         // ASN class — short value, per-probe org breakdown in details.
@@ -165,27 +169,25 @@ object GeoIpProbes {
                 else -> Severity.PASS
             }
             val reported = when {
-                p.error != null -> "ERROR: ${p.error}"
-                org == null -> "(no org field)"
-                excluded && dcMatch != null -> "$org  ←  \"$dcMatch\" (excluded: compared in Consistency)"
-                excluded -> "$org  (excluded: compared in Consistency)"
-                cdnMatch != null -> "$org  ←  CDN whitelist (\"$cdnMatch\")"
-                dcMatch != null -> "$org  ←  matched \"$dcMatch\""
+                p.error != null -> AppStrings.get(R.string.val_error_prefix, p.error)
+                org == null -> AppStrings.get(R.string.val_no_org_field)
+                excluded && dcMatch != null -> AppStrings.get(R.string.val_asn_excluded_dc, org, dcMatch)
+                excluded -> AppStrings.get(R.string.val_asn_excluded, org)
+                cdnMatch != null -> AppStrings.get(R.string.val_asn_cdn_whitelist, org, cdnMatch)
+                dcMatch != null -> AppStrings.get(R.string.val_asn_dc_match, org, dcMatch)
                 else -> org
             }
             DetailEntry(source = p.provider, reported = reported, verdict = verdict)
         }
         val isDc = asnDetails.any { it.verdict == Severity.HARD }
-        val firstOrg = okV4.firstNotNullOfOrNull { it.org } ?: "?"
+        val firstOrg = okV4.firstNotNullOfOrNull { it.org } ?: unknown
         out += Check(
             id = "asn_class",
             category = Category.GEOIP,
-            label = "ASN organisation",
+            label = AppStrings.get(R.string.check_asn_class_label),
             value = firstOrg,
             severity = if (isDc) Severity.HARD else Severity.PASS,
-            explanation = "Datacenter ASNs (DigitalOcean/AWS/Hetzner/OVH/etc.) = HARD VPN signal. " +
-                "Residential ISP ASNs are clean. CDN ASNs (Cloudflare, Akamai, Fastly, CloudFront) " +
-                "are whitelisted to suppress false positives. Tap to see what each probe returned.",
+            explanation = AppStrings.get(R.string.check_asn_class_explanation),
             details = asnDetails,
         )
 
@@ -208,8 +210,8 @@ object GeoIpProbes {
                 else -> Severity.PASS
             }
             val reported = when {
-                p.error != null -> "ERROR: ${p.error}"
-                fields.isEmpty() -> "(provider does not expose proxy/hosting/vpn fields)"
+                p.error != null -> AppStrings.get(R.string.val_error_prefix, p.error)
+                fields.isEmpty() -> AppStrings.get(R.string.val_no_fields)
                 else -> fields.joinToString(", ")
             }
             DetailEntry(source = p.provider, reported = reported, verdict = verdict)
@@ -218,12 +220,10 @@ object GeoIpProbes {
         out += Check(
             id = "reputation_flag",
             category = Category.GEOIP,
-            label = "Probe reputation flag",
-            value = if (flagged) "flagged" else "clean",
+            label = AppStrings.get(R.string.check_reputation_flag_label),
+            value = if (flagged) AppStrings.get(R.string.val_flagged) else AppStrings.get(R.string.val_clean),
             severity = if (flagged) Severity.HARD else Severity.PASS,
-            explanation = "Anti-fraud flag from a GeoIP probe. ip-api.com returns proxy/hosting; " +
-                "Cloudflare cdn-cgi/trace exposes warp=on/gateway=on (treated as vpn=true). " +
-                "Tap to see which provider returned what.",
+            explanation = AppStrings.get(R.string.check_reputation_flag_explanation),
             details = repDetails,
         )
 
@@ -234,9 +234,9 @@ object GeoIpProbes {
             DetailEntry(
                 source = p.provider,
                 reported = when {
-                    p.error != null -> "ERROR: ${p.error}"
-                    p.ip == null -> "?"
-                    excluded -> "${p.ip}  (excluded from agreement check)"
+                    p.error != null -> AppStrings.get(R.string.val_error_prefix, p.error)
+                    p.ip == null -> unknown
+                    excluded -> AppStrings.get(R.string.val_ip_excluded, p.ip)
                     else -> p.ip
                 },
                 verdict = if (p.error != null || p.ip == null || excluded) Severity.INFO else Severity.PASS,
@@ -246,10 +246,11 @@ object GeoIpProbes {
         out += Check(
             id = "probe_ip_agreement",
             category = Category.GEOIP,
-            label = "Probe IP agreement",
-            value = if (ips.size <= 1) ips.firstOrNull() ?: "?" else "${ips.size} different IPs",
+            label = AppStrings.get(R.string.check_probe_ip_agreement_label),
+            value = if (ips.size <= 1) ips.firstOrNull() ?: unknown
+                else AppStrings.get(R.string.val_n_different_ips, ips.size),
             severity = if (ips.size > 1) Severity.HARD else Severity.PASS,
-            explanation = "Different probes seeing different external IPs = split routing leak.",
+            explanation = AppStrings.get(R.string.check_probe_ip_agreement_explanation),
             details = ipDetails,
         )
 
@@ -259,10 +260,10 @@ object GeoIpProbes {
             out += Check(
                 id = "probe_country_agreement",
                 category = Category.GEOIP,
-                label = "Probe country agreement",
+                label = AppStrings.get(R.string.check_probe_country_agreement_label),
                 value = countries.joinToString(),
                 severity = Severity.SOFT,
-                explanation = "Probes returned same IP but different country (GeoIP DB lag).",
+                explanation = AppStrings.get(R.string.check_probe_country_agreement_explanation),
             )
         }
 
@@ -288,18 +289,19 @@ object GeoIpProbes {
             val unknownHits = hits.filter { (_, v) -> !isLegitimateServiceHeader(v) }
             val knownHits = hits.filter { (_, v) -> isLegitimateServiceHeader(v) }
             val (reported, sev) = when {
-                p.error != null -> "ERROR: ${p.error}" to Severity.INFO
-                hits.isEmpty() -> "no forwarding headers" to Severity.PASS
+                p.error != null -> AppStrings.get(R.string.val_error_prefix, p.error) to Severity.INFO
+                hits.isEmpty() -> AppStrings.get(R.string.val_no_forwarding_headers) to Severity.PASS
                 unknownHits.isNotEmpty() -> {
                     val u = unknownHits.entries.joinToString { "${it.key}=${it.value}" }
-                    val k = if (knownHits.isEmpty()) "" else " (also: " + knownHits.entries
-                        .joinToString { "${it.key}=${it.value}" } + " — service-side, ignored)"
-                    "$u$k" to Severity.HARD
+                    val k = knownHits.entries.joinToString { "${it.key}=${it.value}" }
+                    val line = if (k.isEmpty()) u else AppStrings.get(R.string.val_unknown_with_known, u, k)
+                    line to Severity.HARD
                 }
                 else -> {
-                    // Only known service-side markers: ipinfo on GCLB, etc. Not a path proxy.
-                    knownHits.entries.joinToString { "${it.key}=${it.value}" } +
-                        "  (service-side, whitelisted)" to Severity.PASS
+                    AppStrings.get(
+                        R.string.val_service_side_whitelisted,
+                        knownHits.entries.joinToString { "${it.key}=${it.value}" },
+                    ) to Severity.PASS
                 }
             }
             DetailEntry(source = p.provider, reported = reported, verdict = sev)
@@ -307,14 +309,11 @@ object GeoIpProbes {
         out += Check(
             id = "transparent_proxy_headers",
             category = Category.GEOIP,
-            label = "Transparent proxy headers",
-            value = if (headerHits.isEmpty()) "none (or all whitelisted)" else "${headerHits.size} unknown hits",
+            label = AppStrings.get(R.string.check_transparent_proxy_headers_label),
+            value = if (headerHits.isEmpty()) AppStrings.get(R.string.val_transparent_proxy_none)
+                else AppStrings.get(R.string.val_transparent_proxy_hits, headerHits.size),
             severity = if (headerHits.isNotEmpty()) Severity.HARD else Severity.PASS,
-            explanation = "Methodology §10.2 — Via / X-Forwarded-For / Forwarded headers added " +
-                "to probe responses indicate a transparent proxy on the path. Known service-side " +
-                "infrastructure (Google Cloud LB 'via=1.1 google', Fastly varnish, CloudFront, " +
-                "Akamai, nginx, Cloudflare, Envoy, etc.) is whitelisted because the methodology " +
-                "itself warns those are legitimately added by the service or its CDN.",
+            explanation = AppStrings.get(R.string.check_transparent_proxy_headers_explanation),
             details = headerDetails,
         )
 

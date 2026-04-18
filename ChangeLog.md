@@ -1,5 +1,26 @@
 # ChangeLog
 
+## 2026-04-18 — Full Russian localization (UI + all check rows)
+
+Extracted every hardcoded user-facing string to `res/values/strings.xml`
+and added a parallel `res/values-ru/strings.xml`. Covers UI chrome,
+severity / verdict / matrix labels, all ~50 check labels and their
+multi-sentence explanations, generic value tokens (`none`, `off`, `n/a`,
+`ERROR:`), per-source detail entries, STUN / reference-parity /
+traceroute strings, share-text output, and history screen.
+
+Device-language detection works via Android's standard resource
+resolution, so on a `ru-RU` device every row renders in Russian.
+Technical identifiers (`TRANSPORT_VPN`, `MCC`, `ASN`, `DNS`, etc.) stay
+English since they are API terms.
+
+Architecture:
+- New `VpnDetectorApp` Application class + `AppStrings` singleton for
+  resource access from `detect/` code without threading `Context`
+  through every function.
+- `detect/` Check-constructing code now resolves labels / explanations
+  via `AppStrings.get(R.string.xxx)`; UI resolves via `stringResource`.
+
 ## 2026-04-18 — Documented HOST_REACHABILITY research review and parity gaps
 
 Reviewed a public write-up of a reference RU-messenger `HOST_REACHABILITY`

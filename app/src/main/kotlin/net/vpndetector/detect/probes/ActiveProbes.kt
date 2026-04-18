@@ -6,6 +6,8 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import okhttp3.Request
+import net.vpndetector.AppStrings
+import net.vpndetector.R
 import net.vpndetector.detect.Category
 import net.vpndetector.detect.Check
 import net.vpndetector.detect.DetailEntry
@@ -44,61 +46,60 @@ object ActiveProbes {
         // the absolute numbers are noisy (bad RSRP, handoffs, carrier transit variance)
         // and foreign CDNs can legitimately be closer than RU origin servers, so we cap
         // these checks at SOFT and loosen the "slow RU" threshold.
+        val groupRu = AppStrings.get(R.string.det_group_ru)
+        val groupForeign = AppStrings.get(R.string.det_group_foreign)
+
         out += Check(
             id = "lat_ru",
             category = Category.PROBES,
-            label = "Latency to RU anchors (median)",
-            value = if (ru < 0) "n/a" else "$ru ms",
+            label = AppStrings.get(R.string.check_lat_ru_label),
+            value = if (ru < 0) AppStrings.get(R.string.val_na) else AppStrings.get(R.string.val_ms, ru),
             severity = when {
                 ru < 0 -> Severity.INFO
-                ru > 400 -> Severity.SOFT      // was 200=HARD; cellular can easily hit 200
+                ru > 400 -> Severity.SOFT
                 else -> Severity.PASS
             },
-            explanation = "yandex.ru / mail.ru / gosuslugi.ru. Supplementary signal (methodology §10.1). " +
-                "Cellular networks have high baseline latency, so this is capped at SOFT and only fires " +
-                "above 400ms. Tap to see per-host latency.",
+            explanation = AppStrings.get(R.string.check_lat_ru_explanation),
             details = ruResults.map { it.toDetail(slowMs = 400, warnMs = 200) },
         )
 
         out += Check(
             id = "lat_foreign",
             category = Category.PROBES,
-            label = "Latency to foreign anchors (median)",
-            value = if (foreign < 0) "n/a" else "$foreign ms",
+            label = AppStrings.get(R.string.check_lat_foreign_label),
+            value = if (foreign < 0) AppStrings.get(R.string.val_na) else AppStrings.get(R.string.val_ms, foreign),
             severity = when {
                 foreign < 0 -> Severity.INFO
-                foreign < 20 -> Severity.SOFT  // was <30=HARD; modern CDNs + operator peering often hit 25-30ms
+                foreign < 20 -> Severity.SOFT
                 else -> Severity.PASS
             },
-            explanation = "google / cloudflare / apple. Supplementary signal (methodology §10.1). " +
-                "Modern CDNs have PoPs close to RU mobile operators, so foreign latency alone is weak. " +
-                "Capped at SOFT and only fires below 20ms. Tap to see per-host latency.",
+            explanation = AppStrings.get(R.string.check_lat_foreign_explanation),
             details = foreignResults.map { it.toForeignDetail(fastMs = 20, warnMs = 50) },
         )
 
         out += Check(
             id = "lat_ratio",
             category = Category.PROBES,
-            label = "RU vs foreign latency ordering",
-            value = if (ru < 0 || foreign < 0) "n/a"
-                else if (ru < foreign) "RU faster ✓ ($ru < $foreign ms)"
-                else "foreign faster ($foreign < $ru ms)",
+            label = AppStrings.get(R.string.check_lat_ratio_label),
+            value = when {
+                ru < 0 || foreign < 0 -> AppStrings.get(R.string.val_na)
+                ru < foreign -> AppStrings.get(R.string.val_ru_faster, ru, foreign)
+                else -> AppStrings.get(R.string.val_foreign_faster, foreign, ru)
+            },
             severity = when {
                 ru < 0 || foreign < 0 -> Severity.INFO
                 ru < foreign -> Severity.PASS
-                // Ordering is only a weak signal — RU origin servers often sit in RU datacenters
-                // that are further (latency-wise) than the closest Google/Cloudflare PoP. Mark INFO,
-                // not a scoring contributor, because the methodology §10.1 treats SNITCH as
-                // supplementary ('дополнительные методы') that corroborates GeoIP rather than
-                // standing alone.
                 else -> Severity.INFO
             },
-            explanation = "From a real RU connection RU anchors are often faster than foreign, but modern " +
-                "CDNs (Google, Cloudflare) frequently have PoPs closer to the operator's core than the " +
-                "RU origin servers themselves. Reversed ordering alone does not indicate VPN; downgraded to " +
-                "INFO. Tap to see per-host measurements.",
-            details = (ruResults.map { it.copy(group = "RU") } + foreignResults.map { it.copy(group = "foreign") })
-                .map { DetailEntry(source = "[${it.group}] ${it.host}", reported = it.reportedString(), verdict = Severity.INFO) },
+            explanation = AppStrings.get(R.string.check_lat_ratio_explanation),
+            details = (ruResults.map { it.copy(group = groupRu) } + foreignResults.map { it.copy(group = groupForeign) })
+                .map {
+                    DetailEntry(
+                        source = AppStrings.get(R.string.det_lat_prefixed, it.group, it.host),
+                        reported = it.reportedString(),
+                        verdict = Severity.INFO,
+                    )
+                },
         )
 
         // IPv6 reachability
@@ -106,10 +107,10 @@ object ActiveProbes {
         out += Check(
             id = "ipv6",
             category = Category.PROBES,
-            label = "IPv6 external address",
-            value = v6 ?: "no v6",
+            label = AppStrings.get(R.string.check_ipv6_label),
+            value = v6 ?: AppStrings.get(R.string.val_no_v6),
             severity = Severity.INFO,
-            explanation = "Diagnostic. Split tunnels often leak v6 — compare with v4 country in GeoIP tab.",
+            explanation = AppStrings.get(R.string.check_ipv6_explanation),
         )
 
         // Local non-loopback addresses
@@ -122,10 +123,10 @@ object ActiveProbes {
         out += Check(
             id = "local_addrs",
             category = Category.PROBES,
-            label = "Local addresses",
-            value = locals.ifEmpty { "?" },
+            label = AppStrings.get(R.string.check_local_addrs_label),
+            value = locals.ifEmpty { AppStrings.get(R.string.val_unknown) },
             severity = Severity.INFO,
-            explanation = "All non-loopback link-local addresses on every interface.",
+            explanation = AppStrings.get(R.string.check_local_addrs_explanation),
         )
 
         // Captive portal probe
@@ -137,10 +138,10 @@ object ActiveProbes {
         out += Check(
             id = "captive_portal",
             category = Category.PROBES,
-            label = "Captive portal probe (gstatic 204)",
-            value = cp?.toString() ?: "fail",
+            label = AppStrings.get(R.string.check_captive_portal_label),
+            value = cp?.toString() ?: AppStrings.get(R.string.val_captive_portal_fail),
             severity = if (cp == 204) Severity.PASS else Severity.SOFT,
-            explanation = "Non-204 indicates a captive portal or middlebox interception.",
+            explanation = AppStrings.get(R.string.check_captive_portal_explanation),
         )
 
         out
@@ -162,9 +163,9 @@ object ActiveProbes {
         val group: String = "",
     ) {
         fun reportedString(): String = when {
-            error != null -> "ERROR: $error"
-            ms < 0 -> "no response"
-            else -> "$ms ms"
+            error != null -> AppStrings.get(R.string.val_error_prefix, error)
+            ms < 0 -> AppStrings.get(R.string.val_no_response)
+            else -> AppStrings.get(R.string.val_ms, ms)
         }
 
         /** Severity for an RU anchor: slow = bad. */

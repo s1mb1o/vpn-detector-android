@@ -13,6 +13,8 @@ import android.os.Build
 import android.os.Process
 import android.provider.Settings
 import androidx.core.content.ContextCompat
+import net.vpndetector.AppStrings
+import net.vpndetector.R
 import net.vpndetector.detect.Category
 import net.vpndetector.detect.Check
 import net.vpndetector.detect.DetailEntry
@@ -128,11 +130,10 @@ object SystemChecks {
             out += Check(
                 id = "transport_vpn",
                 category = Category.SYSTEM,
-                label = "TRANSPORT_VPN flag",
+                label = AppStrings.get(R.string.check_transport_vpn_label),
                 value = isVpn.toString(),
                 severity = if (isVpn) Severity.HARD else Severity.PASS,
-                explanation = "ConnectivityManager.hasTransport(TRANSPORT_VPN). " +
-                    "If true any local VPN client is active. The single most-checked anti-fraud signal.",
+                explanation = AppStrings.get(R.string.check_transport_vpn_explanation),
             )
         }
 
@@ -142,20 +143,20 @@ object SystemChecks {
                 out += Check(
                     id = "cap_not_vpn",
                     category = Category.SYSTEM,
-                    label = "NET_CAPABILITY_NOT_VPN",
-                    value = "n/a (no active network)",
+                    label = AppStrings.get(R.string.check_cap_not_vpn_label),
+                    value = AppStrings.get(R.string.val_na_no_network),
                     severity = Severity.INFO,
-                    explanation = "Cannot evaluate while offline / between network handoffs.",
+                    explanation = AppStrings.get(R.string.check_cap_not_vpn_explanation_none),
                 )
             } else {
                 val notVpn = caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
                 out += Check(
                     id = "cap_not_vpn",
                     category = Category.SYSTEM,
-                    label = "NET_CAPABILITY_NOT_VPN",
+                    label = AppStrings.get(R.string.check_cap_not_vpn_label),
                     value = notVpn.toString(),
                     severity = if (!notVpn) Severity.HARD else Severity.PASS,
-                    explanation = "Mirror of TRANSPORT_VPN. SDKs check both to defeat naive bypasses.",
+                    explanation = AppStrings.get(R.string.check_cap_not_vpn_explanation),
                 )
             }
         }
@@ -174,11 +175,10 @@ object SystemChecks {
             out += Check(
                 id = "tun_iface",
                 category = Category.SYSTEM,
-                label = "Tunnel interfaces present",
-                value = if (flagged.isEmpty()) "none" else flagged.joinToString { it.name },
+                label = AppStrings.get(R.string.check_tun_iface_label),
+                value = if (flagged.isEmpty()) AppStrings.get(R.string.val_none) else flagged.joinToString { it.name },
                 severity = if (flagged.isNotEmpty()) Severity.HARD else Severity.PASS,
-                explanation = "Any tun/tap/wg/utun/ppp/ipsec interface that is UP indicates a local VPN " +
-                    "or IPsec/IKEv2 tunnel client.",
+                explanation = AppStrings.get(R.string.check_tun_iface_explanation),
             )
         }
 
@@ -189,11 +189,10 @@ object SystemChecks {
             out += Check(
                 id = "active_iface_name",
                 category = Category.SYSTEM,
-                label = "Active interface name",
+                label = AppStrings.get(R.string.check_active_iface_name_label),
                 value = name,
                 severity = if (bad) Severity.HARD else Severity.PASS,
-                explanation = "Active network's interface name. wlan*/rmnet*/ccmni* are normal; " +
-                    "tun/wg/utun/ppp/ipsec indicate VPN.",
+                explanation = AppStrings.get(R.string.check_active_iface_name_explanation),
             )
         }
 
@@ -220,10 +219,14 @@ object SystemChecks {
             out += Check(
                 id = "default_route_tun",
                 category = Category.SYSTEM,
-                label = "Default route via tunnel",
-                value = if (defaultViaTun) "yes" else if (wgTrick) "WG split-route trick" else "no",
+                label = AppStrings.get(R.string.check_default_route_tun_label),
+                value = when {
+                    defaultViaTun -> AppStrings.get(R.string.val_yes)
+                    wgTrick -> AppStrings.get(R.string.val_wg_trick)
+                    else -> AppStrings.get(R.string.val_no)
+                },
                 severity = sev,
-                explanation = "0.0.0.0/0 via tun OR the 0.0.0.0/1 + 128.0.0.0/1 trick (WireGuard signature).",
+                explanation = AppStrings.get(R.string.check_default_route_tun_explanation),
             )
         }
 
@@ -233,10 +236,10 @@ object SystemChecks {
             out += Check(
                 id = "http_proxy",
                 category = Category.SYSTEM,
-                label = "HTTP proxy on link",
-                value = proxy?.toString() ?: "none",
+                label = AppStrings.get(R.string.check_http_proxy_label),
+                value = proxy?.toString() ?: AppStrings.get(R.string.val_none),
                 severity = if (proxy != null) Severity.HARD else Severity.PASS,
-                explanation = "LinkProperties.httpProxy. Any value = system-wide HTTP proxy, treated as VPN by SDKs.",
+                explanation = AppStrings.get(R.string.check_http_proxy_explanation),
             )
         }
 
@@ -253,14 +256,14 @@ object SystemChecks {
             out += Check(
                 id = "private_dns",
                 category = Category.SYSTEM,
-                label = "Private DNS (DoT)",
+                label = AppStrings.get(R.string.check_private_dns_label),
                 value = when {
-                    name != null -> "active: $name"
-                    active -> "active (auto)"
-                    else -> "off"
+                    name != null -> AppStrings.get(R.string.val_private_dns_active_name, name)
+                    active -> AppStrings.get(R.string.val_private_dns_active_auto)
+                    else -> AppStrings.get(R.string.val_off)
                 },
                 severity = sev,
-                explanation = "Non-operator DoT (Cloudflare/Google/AdGuard) is an anti-fraud penalty.",
+                explanation = AppStrings.get(R.string.check_private_dns_explanation),
             )
         }
 
@@ -271,10 +274,10 @@ object SystemChecks {
             out += Check(
                 id = "dns_servers",
                 category = Category.SYSTEM,
-                label = "DNS servers",
-                value = if (dns.isEmpty()) "none" else dns.joinToString(),
+                label = AppStrings.get(R.string.check_dns_servers_label),
+                value = if (dns.isEmpty()) AppStrings.get(R.string.val_none) else dns.joinToString(),
                 severity = if (publicHits.isNotEmpty()) Severity.SOFT else Severity.PASS,
-                explanation = "System DNS resolvers. Public providers (1.1.1.1, 8.8.8.8, AdGuard, Quad9) flag.",
+                explanation = AppStrings.get(R.string.check_dns_servers_explanation),
             )
         }
 
@@ -290,10 +293,11 @@ object SystemChecks {
             out += Check(
                 id = "always_on_vpn",
                 category = Category.SYSTEM,
-                label = "Always-on VPN",
-                value = if (on) "$onApp (lockdown=$lockdown)" else "off",
+                label = AppStrings.get(R.string.check_always_on_vpn_label),
+                value = if (on) AppStrings.get(R.string.val_always_on_with_lockdown, onApp ?: "", lockdown)
+                    else AppStrings.get(R.string.val_off),
                 severity = if (on) Severity.SOFT else Severity.PASS,
-                explanation = "Settings.Secure always_on_vpn_app + always_on_vpn_lockdown.",
+                explanation = AppStrings.get(R.string.check_always_on_vpn_explanation),
             )
         }
 
@@ -308,11 +312,10 @@ object SystemChecks {
             out += Check(
                 id = "installed_vpn_apps",
                 category = Category.SYSTEM,
-                label = "Known VPN clients installed",
-                value = if (installed.isEmpty()) "none" else installed.joinToString(),
+                label = AppStrings.get(R.string.check_installed_vpn_apps_label),
+                value = if (installed.isEmpty()) AppStrings.get(R.string.val_none) else installed.joinToString(),
                 severity = if (installed.isNotEmpty()) Severity.SOFT else Severity.PASS,
-                explanation = "PackageManager scan for generic commercial VPN client package names. " +
-                    "SOFT because these have legitimate work / privacy uses.",
+                explanation = AppStrings.get(R.string.check_installed_vpn_apps_explanation),
             )
         }
 
@@ -326,29 +329,26 @@ object SystemChecks {
             }
             val details = installed.map { pkg ->
                 val label = when {
-                    pkg == "org.amnezia.vpn" -> "AmneziaWG (DPI-resistant WG fork)"
-                    pkg.contains("v2ray") || pkg.contains("xray") -> "Xray / VLESS-Reality client"
+                    pkg == "org.amnezia.vpn" -> AppStrings.get(R.string.val_aws_tag)
+                    pkg.contains("v2ray") || pkg.contains("xray") -> AppStrings.get(R.string.val_tag_xray)
                     pkg.contains("sagernet") || pkg.contains("nekohasekai") || pkg.contains("matsuri") ||
-                        pkg.contains("nb4a") || pkg.contains("nekoray") -> "NekoBox / sing-box / SagerNet"
-                    pkg.contains("clash") || pkg.contains("mihomo") -> "Clash / Mihomo"
-                    pkg.contains("shadowsocks") -> "Shadowsocks(R)"
-                    pkg.contains("outline") -> "Outline (Shadowsocks-based)"
-                    pkg.contains("byedpi") -> "ByeDPI (TSPU bypass)"
-                    else -> "anti-detection tool"
+                        pkg.contains("nb4a") || pkg.contains("nekoray") -> AppStrings.get(R.string.val_tag_sagernet)
+                    pkg.contains("clash") || pkg.contains("mihomo") -> AppStrings.get(R.string.val_tag_clash)
+                    pkg.contains("shadowsocks") -> AppStrings.get(R.string.val_tag_shadowsocks)
+                    pkg.contains("outline") -> AppStrings.get(R.string.val_tag_outline)
+                    pkg.contains("byedpi") -> AppStrings.get(R.string.val_tag_byedpi)
+                    else -> AppStrings.get(R.string.val_tag_anti_detection)
                 }
                 DetailEntry(source = pkg, reported = label, verdict = Severity.HARD)
             }
             out += Check(
                 id = "anti_detection_apps",
                 category = Category.SYSTEM,
-                label = "Anti-detection toolchain installed",
-                value = if (installed.isEmpty()) "none" else "${installed.size}: ${installed.joinToString()}",
+                label = AppStrings.get(R.string.check_anti_detection_apps_label),
+                value = if (installed.isEmpty()) AppStrings.get(R.string.val_none)
+                    else AppStrings.get(R.string.val_anti_detection_summary, installed.size, installed.joinToString()),
                 severity = if (installed.isNotEmpty()) Severity.HARD else Severity.PASS,
-                explanation = "Packages purpose-built to defeat client-side VPN detection: AmneziaWG " +
-                    "(WG with junk-packet obfuscation), Xray/VLESS-Reality (TLS-mimicking transport), " +
-                    "NekoBox / sing-box / SagerNet (Xray GUIs), Clash/Mihomo, Shadowsocks(R), Outline, " +
-                    "ByeDPI (TSPU bypass). Unlike generic VPN clients these have no 'I need a VPN for " +
-                    "work' use case — installation implies intent to bypass anti-VPN measures.",
+                explanation = AppStrings.get(R.string.check_anti_detection_apps_explanation),
                 details = details,
             )
         }
@@ -369,10 +369,10 @@ object SystemChecks {
             out += Check(
                 id = "mtu",
                 category = Category.SYSTEM,
-                label = "Active iface MTU",
-                value = mtu?.toString() ?: "n/a",
+                label = AppStrings.get(R.string.check_mtu_label),
+                value = mtu?.toString() ?: AppStrings.get(R.string.val_na),
                 severity = sev,
-                explanation = "Typical WG=1420, AmneziaWG≈1380, raw v4 MTU 1280. Non-1500 on Wi-Fi is suspicious.",
+                explanation = AppStrings.get(R.string.check_mtu_explanation),
             )
         }
 
@@ -386,10 +386,10 @@ object SystemChecks {
             out += Check(
                 id = "mock_location",
                 category = Category.SYSTEM,
-                label = "Mock location",
-                value = mock ?: "n/a",
+                label = AppStrings.get(R.string.check_mock_location_label),
+                value = mock ?: AppStrings.get(R.string.val_na),
                 severity = if (on) Severity.SOFT else Severity.PASS,
-                explanation = "Banks penalize mock-location-capable devices.",
+                explanation = AppStrings.get(R.string.check_mock_location_explanation),
             )
         }
 
@@ -405,10 +405,10 @@ object SystemChecks {
             out += Check(
                 id = "dev_options",
                 category = Category.SYSTEM,
-                label = "Developer options / ADB",
-                value = "dev=$dev adb=$adb",
+                label = AppStrings.get(R.string.check_dev_options_label),
+                value = AppStrings.get(R.string.val_dev_options, dev, adb),
                 severity = Severity.INFO,
-                explanation = "Diagnostic context. Often co-occurs with VPN setups but not a VPN signal itself.",
+                explanation = AppStrings.get(R.string.check_dev_options_explanation),
             )
         }
 
@@ -424,10 +424,10 @@ object SystemChecks {
             out += Check(
                 id = "active_transport",
                 category = Category.SYSTEM,
-                label = "Active transport",
+                label = AppStrings.get(R.string.check_active_transport_label),
                 value = transport,
                 severity = Severity.INFO,
-                explanation = "Used by other tabs to interpret consistency checks.",
+                explanation = AppStrings.get(R.string.check_active_transport_explanation),
             )
         }
 
@@ -444,10 +444,11 @@ object SystemChecks {
             out += Check(
                 id = "root",
                 category = Category.SYSTEM,
-                label = "Root indicators",
-                value = if (rooted) "rooted (su=$suExists magisk=$magiskPkg)" else "stock",
+                label = AppStrings.get(R.string.check_root_label),
+                value = if (rooted) AppStrings.get(R.string.val_rooted, suExists.toString(), magiskPkg.toString())
+                    else AppStrings.get(R.string.val_stock),
                 severity = if (rooted) Severity.SOFT else Severity.PASS,
-                explanation = "Heuristic: su binary or Magisk presence. Combined with VPN amplifies suspicion.",
+                explanation = AppStrings.get(R.string.check_root_explanation),
             )
         }
 
@@ -463,10 +464,10 @@ object SystemChecks {
             out += Check(
                 id = "wifi_ssid",
                 category = Category.SYSTEM,
-                label = "Wi-Fi SSID",
-                value = ssid ?: "n/a (no permission or not on Wi-Fi)",
+                label = AppStrings.get(R.string.check_wifi_ssid_label),
+                value = ssid ?: AppStrings.get(R.string.val_na_no_perm_or_wifi),
                 severity = Severity.INFO,
-                explanation = "Diagnostic — useful to tag history entries by location.",
+                explanation = AppStrings.get(R.string.check_wifi_ssid_explanation),
             )
         }
 
@@ -487,11 +488,11 @@ object SystemChecks {
             out += Check(
                 id = "jvm_proxy",
                 category = Category.SYSTEM,
-                label = "JVM proxy properties",
-                value = if (pairs.isEmpty()) "none" else pairs.joinToString { "${it.first}=${it.second}" },
+                label = AppStrings.get(R.string.check_jvm_proxy_label),
+                value = if (pairs.isEmpty()) AppStrings.get(R.string.val_none)
+                    else pairs.joinToString { "${it.first}=${it.second}" },
                 severity = if (anyHost) Severity.HARD else Severity.PASS,
-                explanation = "System.getProperty(http.proxyHost / https.proxyHost / socksProxyHost). " +
-                    "Per-process proxy hosts that LinkProperties.httpProxy does not see.",
+                explanation = AppStrings.get(R.string.check_jvm_proxy_explanation),
             )
         }
 
@@ -501,15 +502,14 @@ object SystemChecks {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val info = caps?.transportInfo
             val isVpnInfo = info != null && info.javaClass.simpleName == "VpnTransportInfo"
-            val text = if (isVpnInfo) info.toString() else "(none)"
+            val text = if (isVpnInfo) info.toString() else "(${AppStrings.get(R.string.val_none)})"
             out += Check(
                 id = "vpn_transport_info",
                 category = Category.SYSTEM,
-                label = "VpnTransportInfo",
+                label = AppStrings.get(R.string.check_vpn_transport_info_label),
                 value = text.take(200),
                 severity = if (isVpnInfo) Severity.HARD else Severity.PASS,
-                explanation = "NetworkCapabilities.transportInfo on API 31+. When non-null and of type " +
-                    "VpnTransportInfo it exposes the VPN session id, type, and bypassable flag for the active VPN.",
+                explanation = AppStrings.get(R.string.check_vpn_transport_info_explanation),
             )
         }
 
@@ -524,21 +524,20 @@ object SystemChecks {
                 isTunnelIfaceName(ifc)
             }
             val details = listOf(
-                DetailEntry("default routes", defaults.size.toString(),
+                DetailEntry(AppStrings.get(R.string.det_default_routes), defaults.size.toString(),
                     if (defaults.size > 1) Severity.SOFT else Severity.PASS),
-                DetailEntry("routes via tunnel iface", viaTunnel.size.toString(),
+                DetailEntry(AppStrings.get(R.string.det_routes_via_tunnel), viaTunnel.size.toString(),
                     if (viaTunnel.isNotEmpty()) Severity.SOFT else Severity.PASS),
-                DetailEntry("total routes", routes.size.toString(), Severity.INFO),
+                DetailEntry(AppStrings.get(R.string.det_total_routes), routes.size.toString(), Severity.INFO),
             )
             val sev = if (defaults.size > 1 || viaTunnel.isNotEmpty()) Severity.SOFT else Severity.PASS
             out += Check(
                 id = "route_anomalies",
                 category = Category.SYSTEM,
-                label = "Routing table anomalies",
-                value = "${defaults.size} default · ${viaTunnel.size} via-tunnel · ${routes.size} total",
+                label = AppStrings.get(R.string.check_route_anomalies_label),
+                value = AppStrings.get(R.string.val_default_routes_line, defaults.size, viaTunnel.size, routes.size),
                 severity = sev,
-                explanation = "Multiple default routes or routes via tun/wg/utun/ppp/ipsec are indirect " +
-                    "signs of split-tunnel / corp VPN / fork VPN setups.",
+                explanation = AppStrings.get(R.string.check_route_anomalies_explanation),
                 details = details,
             )
         }
@@ -558,15 +557,14 @@ object SystemChecks {
             out += Check(
                 id = "dumpsys_vpn",
                 category = Category.SYSTEM,
-                label = "dumpsys vpn_management",
+                label = AppStrings.get(R.string.check_dumpsys_vpn_label),
                 value = when {
-                    !ok -> "denied (no DUMP permission, expected on production builds)"
-                    pkgs.isEmpty() -> "no active VPN reported"
+                    !ok -> AppStrings.get(R.string.val_dumpsys_denied)
+                    pkgs.isEmpty() -> AppStrings.get(R.string.val_no_active_vpn)
                     else -> pkgs.joinToString()
                 },
                 severity = sev,
-                explanation = "Runtime.exec(dumpsys vpn_management). Lists active VPN packages on Android 12+. " +
-                    "Regular apps usually get denied; on userdebug builds and some OEMs the call succeeds.",
+                explanation = AppStrings.get(R.string.check_dumpsys_vpn_explanation),
             )
         }
 
@@ -590,10 +588,10 @@ object SystemChecks {
                 val pi = installed.firstOrNull { it.first == pkg }?.second
                 val isRunning = pi != null && running.contains(pkg)
                 val (reported, sev) = when {
-                    pi == null -> "not installed" to Severity.PASS
-                    isRunning -> "installed (vN/A) · running now" to Severity.SOFT
-                    hasUsageAccess -> "installed · not in foreground" to Severity.SOFT
-                    else -> "installed (running state unknown — grant Usage Access)" to Severity.SOFT
+                    pi == null -> AppStrings.get(R.string.val_telegram_not_installed) to Severity.PASS
+                    isRunning -> AppStrings.get(R.string.val_telegram_running) to Severity.SOFT
+                    hasUsageAccess -> AppStrings.get(R.string.val_telegram_not_foreground) to Severity.SOFT
+                    else -> AppStrings.get(R.string.val_telegram_running_unknown) to Severity.SOFT
                 }
                 DetailEntry(source = pkg, reported = reported, verdict = sev)
             }
@@ -603,17 +601,15 @@ object SystemChecks {
             out += Check(
                 id = "telegram_present",
                 category = Category.SYSTEM,
-                label = "Telegram presence",
+                label = AppStrings.get(R.string.check_telegram_present_label),
                 value = when {
-                    installedCount == 0 -> "none"
-                    running.isNotEmpty() -> "$installedCount installed, ${running.size} running"
-                    else -> "$installedCount installed"
+                    installedCount == 0 -> AppStrings.get(R.string.val_none)
+                    running.isNotEmpty() ->
+                        AppStrings.get(R.string.val_telegram_installed_running, installedCount, running.size)
+                    else -> AppStrings.get(R.string.val_telegram_installed_count, installedCount)
                 },
                 severity = sev,
-                explanation = "Weak signal: Telegram is recurrently throttled / blocked in RU. " +
-                    "A user who keeps Telegram installed and uses it routinely is likely bypassing " +
-                    "those restrictions (router VPN, MTProto proxy, etc.). Running-state detection " +
-                    "needs Usage Access permission (Settings → Apps → Special access → Usage access).",
+                explanation = AppStrings.get(R.string.check_telegram_present_explanation),
                 details = details,
             )
         }

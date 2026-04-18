@@ -5,6 +5,8 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
+import net.vpndetector.AppStrings
+import net.vpndetector.R
 import net.vpndetector.detect.Category
 import net.vpndetector.detect.Check
 import net.vpndetector.detect.DetailEntry
@@ -69,11 +71,13 @@ object HostReachabilityProbes {
         var winnerId: String? = null
         var winnerIp: String? = null
 
+        val unknownStatus = AppStrings.get(R.string.val_unknown)
+
         for (endpoint in ordered) {
             if (winnerIp != null) {
                 details += DetailEntry(
                     source = endpoint.id,
-                    reported = "skipped (winner already chosen: $winnerId -> $winnerIp)",
+                    reported = AppStrings.get(R.string.val_ref_skipped, winnerId ?: "", winnerIp ?: ""),
                     verdict = Severity.INFO,
                 )
                 continue
@@ -82,7 +86,7 @@ object HostReachabilityProbes {
             val response = runCatching { RawSocketHttp.get(endpoint.url) }.getOrElse { e ->
                 details += DetailEntry(
                     source = endpoint.id,
-                    reported = "ERROR: ${e.message ?: e.javaClass.simpleName}",
+                    reported = AppStrings.get(R.string.val_error_prefix, e.message ?: e.javaClass.simpleName),
                     verdict = Severity.INFO,
                 )
                 null
@@ -92,19 +96,25 @@ object HostReachabilityProbes {
             if (ip != null && ip != "127.0.0.1") {
                 winnerId = endpoint.id
                 winnerIp = ip
-                val known = if (ip in knownIps) "seen by parallel probes" else "not seen by parallel probes"
+                val knownText = if (ip in knownIps) AppStrings.get(R.string.val_ref_seen)
+                    else AppStrings.get(R.string.val_ref_not_seen)
                 details += DetailEntry(
                     source = endpoint.id,
-                    reported = "$ip  (HTTP ${response.statusCode ?: "?"}; $known)",
+                    reported = AppStrings.get(
+                        R.string.val_ref_winner_line,
+                        ip,
+                        response.statusCode?.toString() ?: unknownStatus,
+                        knownText,
+                    ),
                     verdict = if (ip in knownIps) Severity.PASS else Severity.SOFT,
                 )
             } else {
                 details += DetailEntry(
                     source = endpoint.id,
                     reported = if (ip == null) {
-                        "no IP parsed (HTTP ${response.statusCode ?: "?"})"
+                        AppStrings.get(R.string.val_ref_no_ip_parsed, response.statusCode?.toString() ?: unknownStatus)
                     } else {
-                        "$ip rejected (loopback)"
+                        AppStrings.get(R.string.val_ref_loopback_rejected, ip)
                     },
                     verdict = Severity.INFO,
                 )
@@ -113,7 +123,7 @@ object HostReachabilityProbes {
 
         if (knownIps.isNotEmpty()) {
             details += DetailEntry(
-                source = "parallel probes",
+                source = AppStrings.get(R.string.det_parallel_probes),
                 reported = knownIps.joinToString(),
                 verdict = Severity.INFO,
             )
@@ -128,16 +138,13 @@ object HostReachabilityProbes {
         return Check(
             id = "ref_ip_first_success",
             category = Category.PROBES,
-            label = "Reference first-success IP collector",
+            label = AppStrings.get(R.string.check_ref_ip_first_success_label),
             value = when {
-                winnerIp == null -> "no usable IP returned"
-                else -> "$winnerId -> $winnerIp"
+                winnerIp == null -> AppStrings.get(R.string.val_ref_no_ip)
+                else -> AppStrings.get(R.string.val_ref_winner, winnerId ?: "", winnerIp ?: "")
             },
             severity = severity,
-            explanation = "Mirrors the reference-messenger IP collector documented in public RU " +
-                "anti-fraud research: the exact six endpoints are shuffled, queried over low-level " +
-                "sockets, and the first endpoint returning a non-loopback IP wins. This row is " +
-                "parity-focused; the full GeoIP tab remains the authoritative, richer view.",
+            explanation = AppStrings.get(R.string.check_ref_ip_first_success_explanation),
             details = details,
         )
     }
@@ -155,8 +162,12 @@ object HostReachabilityProbes {
             DetailEntry(
                 source = host.host,
                 reported = when {
-                    status.port != null -> "reachable on tcp/${status.port} (${host.note})"
-                    else -> "unreachable via ${host.ports.joinToString(prefix = "[", postfix = "]")} · ${status.error ?: "error"}"
+                    status.port != null -> AppStrings.get(R.string.val_ref_reachable, status.port, host.note)
+                    else -> AppStrings.get(
+                        R.string.val_ref_unreachable,
+                        host.ports.joinToString(prefix = "[", postfix = "]"),
+                        status.error ?: "error",
+                    )
                 },
                 verdict = if (status.port != null) Severity.PASS else Severity.SOFT,
             )
@@ -165,16 +176,16 @@ object HostReachabilityProbes {
         Check(
             id = "ref_host_reachability",
             category = Category.PROBES,
-            label = "HOST_REACHABILITY parity hosts",
+            label = AppStrings.get(R.string.check_ref_host_reachability_label),
             value = when {
-                missing.isEmpty() -> "${reachable.size}/${REF_HOSTS.size} reachable"
-                else -> "${reachable.size}/${REF_HOSTS.size} reachable · missing: ${missing.joinToString()}"
+                missing.isEmpty() -> AppStrings.get(R.string.val_ref_hosts_reachable, reachable.size, REF_HOSTS.size)
+                else -> AppStrings.get(
+                    R.string.val_ref_hosts_reachable_with_missing,
+                    reachable.size, REF_HOSTS.size, missing.joinToString(),
+                )
             },
             severity = Severity.INFO,
-            explanation = "Mirrors the five-host reachability fingerprint documented in public RU " +
-                "anti-fraud research: api.oneme.ru, gstatic.com, mtalk.google.com, calls.okcdn.ru, " +
-                "gosuslugi.ru. The app records simple booleans here because the pattern is primarily " +
-                "useful together with VPN flag, operator, and exit IP, not as a standalone verdict signal.",
+            explanation = AppStrings.get(R.string.check_ref_host_reachability_explanation),
             details = details,
         )
     }

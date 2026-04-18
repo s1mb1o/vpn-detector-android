@@ -9,6 +9,8 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import okhttp3.Request
+import net.vpndetector.AppStrings
+import net.vpndetector.R
 import net.vpndetector.detect.Category
 import net.vpndetector.detect.Check
 import net.vpndetector.detect.DetailEntry
@@ -75,11 +77,10 @@ object Traceroute {
                 Check(
                     id = "router_egress_country",
                     category = Category.PROBES,
-                    label = "Router egress traceroute",
-                    value = "no hops returned",
+                    label = AppStrings.get(R.string.check_router_egress_country_label),
+                    value = AppStrings.get(R.string.val_no_hops_returned),
                     severity = Severity.INFO,
-                    explanation = "Some carrier networks drop ICMP TTL exceeded entirely, " +
-                        "so traceroute cannot map the path on this connection.",
+                    explanation = AppStrings.get(R.string.check_router_egress_country_no_hops),
                 )
             )
         }
@@ -117,15 +118,19 @@ object Traceroute {
             else -> Severity.INFO
         }
 
+        val unknown = AppStrings.get(R.string.val_unknown)
         val details = trimmed.flatMap { tr ->
             val p = per.first { it.target == tr.target }
             tr.hops.map { h ->
                 val info = h.ip?.let { ipinfo[it] }
                 val reported = when {
-                    h.ip == null -> "* (no reply)"
-                    isPrivate(h.ip) -> "${h.ip}  (private)"
-                    info == null -> "${h.ip}  (geoip lookup failed)"
-                    else -> "${h.ip}  ${info.country ?: "?"}  ${info.city.orEmpty()}  ${info.org.orEmpty()}".trim()
+                    h.ip == null -> AppStrings.get(R.string.val_no_reply)
+                    isPrivate(h.ip) -> AppStrings.get(R.string.val_private, h.ip)
+                    info == null -> AppStrings.get(R.string.val_geoip_lookup_failed, h.ip)
+                    else -> AppStrings.get(
+                        R.string.val_hop_with_info,
+                        h.ip, info.country ?: unknown, info.city.orEmpty(), info.org.orEmpty(),
+                    ).trim()
                 }
                 val sev = when {
                     h.ip == null -> Severity.INFO
@@ -136,7 +141,7 @@ object Traceroute {
                     else -> Severity.INFO
                 }
                 DetailEntry(
-                    source = "${tr.target.name} (${tr.target.ip}) · hop ${h.ttl}",
+                    source = AppStrings.get(R.string.det_router_hop, tr.target.name, tr.target.ip, h.ttl),
                     reported = reported,
                     verdict = sev,
                 )
@@ -144,28 +149,26 @@ object Traceroute {
         }
 
         val value = per.joinToString("  ·  ") { p ->
-            val cc = p.country ?: if (p.firstPublic == null) "—" else "?"
+            val cc = p.country ?: if (p.firstPublic == null) "—" else unknown
             val mark = when (p.verdict) {
                 Severity.PASS -> " ✓"
                 Severity.HARD -> " ✗"
                 else -> ""
             }
             "${p.target.name}=$cc$mark"
-        } + if (simCountry.isNotEmpty()) "  (SIM=$simCountry)" else ""
+        } + if (simCountry.isNotEmpty()) AppStrings.get(R.string.val_router_sim_suffix, simCountry) else ""
 
         listOf(
             Check(
                 id = "router_egress_country",
                 category = Category.PROBES,
-                label = "Router egress traceroute (${TARGETS.size} targets)",
+                label = AppStrings.get(R.string.check_router_egress_country_label_n, TARGETS.size),
                 value = value,
                 severity = aggregate,
-                explanation = "Maps the L3 path to ${TARGETS.joinToString { it.ip }} via " +
-                    "/system/bin/ping -t N. Rule: each target's first non-RFC1918 hop country " +
-                    "must match the SIM country. A foreign hop means the router tunnels that " +
-                    "destination through a VPN. Probing both foreign (Cloudflare, Google) and " +
-                    "RU (Yandex) anchors exposes split / whitelist-routing setups where only " +
-                    "some destinations are tunnelled. Tap to see every hop per target.",
+                explanation = AppStrings.get(
+                    R.string.check_router_egress_country_explanation,
+                    TARGETS.joinToString { it.ip },
+                ),
                 details = details,
             )
         )

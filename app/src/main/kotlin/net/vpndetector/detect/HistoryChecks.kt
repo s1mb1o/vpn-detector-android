@@ -1,5 +1,7 @@
 package net.vpndetector.detect
 
+import net.vpndetector.AppStrings
+import net.vpndetector.R
 import net.vpndetector.data.model.RunResult
 
 /**
@@ -11,8 +13,6 @@ import net.vpndetector.data.model.RunResult
  */
 object HistoryChecks {
 
-    /** Pass the just-derived GeoIP rows so we can read the canonical `external_country`
-     *  without re-deriving it. */
     fun run(currentGeoIp: List<Check>, previous: RunResult?): List<Check> {
         if (previous == null) return emptyList()
         val curr = currentGeoIp.firstOrNull { it.id == "external_country" }?.value?.uppercase()
@@ -25,11 +25,10 @@ object HistoryChecks {
                 Check(
                     id = "country_history",
                     category = Category.GEOIP,
-                    label = "External country stable across runs",
-                    value = "$prev → $curr",
+                    label = AppStrings.get(R.string.check_country_history_stable_label),
+                    value = AppStrings.get(R.string.val_country_transition, prev, curr),
                     severity = Severity.PASS,
-                    explanation = "Methodology §5.4 step 5 — comparison with history. " +
-                        "External country has not changed between consecutive runs.",
+                    explanation = AppStrings.get(R.string.check_country_history_stable_explanation),
                 )
             )
         }
@@ -37,20 +36,18 @@ object HistoryChecks {
         val ageMin = ageMs / 60_000
         val ageHr = ageMin / 60.0
         val severity = when {
-            ageMin < 60 -> Severity.HARD     // <1 h: no plausible travel
-            ageHr < 12 -> Severity.SOFT      // <12 h: possible travel but suspicious
-            else -> Severity.INFO            // >12 h: travel is plausible
+            ageMin < 60 -> Severity.HARD
+            ageHr < 12 -> Severity.SOFT
+            else -> Severity.INFO
         }
         return listOf(
             Check(
                 id = "country_history",
                 category = Category.GEOIP,
-                label = "External country changed across runs",
-                value = "$prev → $curr  (${formatAge(ageMs)})",
+                label = AppStrings.get(R.string.check_country_history_changed_label),
+                value = AppStrings.get(R.string.val_country_transition_with_age, prev, curr, formatAge(ageMs)),
                 severity = severity,
-                explanation = "Methodology §5.4 step 5 — comparison with history. " +
-                    "External country flipped between consecutive runs. <1h gap = HARD " +
-                    "(no plausible travel), <12h = SOFT (possible travel), more = INFO.",
+                explanation = AppStrings.get(R.string.check_country_history_changed_explanation),
             )
         )
     }
@@ -58,10 +55,10 @@ object HistoryChecks {
     private fun formatAge(ms: Long): String {
         val s = ms / 1000
         return when {
-            s < 60 -> "${s}s ago"
-            s < 3600 -> "${s / 60}m ago"
-            s < 86400 -> "${s / 3600}h ago"
-            else -> "${s / 86400}d ago"
+            s < 60 -> AppStrings.get(R.string.val_age_seconds, s.toInt())
+            s < 3600 -> AppStrings.get(R.string.val_age_minutes, (s / 60).toInt())
+            s < 86400 -> AppStrings.get(R.string.val_age_hours, (s / 3600).toInt())
+            else -> AppStrings.get(R.string.val_age_days, (s / 86400).toInt())
         }
     }
 }

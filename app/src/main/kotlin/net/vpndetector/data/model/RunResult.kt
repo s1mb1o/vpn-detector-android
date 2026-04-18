@@ -1,6 +1,8 @@
 package net.vpndetector.data.model
 
 import kotlinx.serialization.Serializable
+import net.vpndetector.AppStrings
+import net.vpndetector.R
 import net.vpndetector.detect.Category
 import net.vpndetector.detect.Check
 import net.vpndetector.detect.Severity
@@ -55,9 +57,9 @@ data class RunResult(
     }
 
     private fun Severity.label(): String = when (this) {
-        Severity.HARD -> "FAIL"
-        Severity.SOFT -> "WARN"
-        Severity.PASS -> "PASS"
-        Severity.INFO -> "INFO"
+        Severity.HARD -> AppStrings.get(R.string.sev_label_fail)
+        Severity.SOFT -> AppStrings.get(R.string.sev_label_warn)
+        Severity.PASS -> AppStrings.get(R.string.sev_label_pass)
+        Severity.INFO -> AppStrings.get(R.string.sev_label_info)
     }
 }

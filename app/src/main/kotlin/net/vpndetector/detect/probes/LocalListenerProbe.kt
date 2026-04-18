@@ -5,6 +5,8 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
+import net.vpndetector.AppStrings
+import net.vpndetector.R
 import net.vpndetector.detect.Category
 import net.vpndetector.detect.Check
 import net.vpndetector.detect.DetailEntry
@@ -69,7 +71,8 @@ object LocalListenerProbe {
         val details = results.map { (port, label, isOpen) ->
             DetailEntry(
                 source = "127.0.0.1:$port",
-                reported = if (isOpen) "open · $label" else "closed",
+                reported = if (isOpen) AppStrings.get(R.string.val_open_listener, label)
+                    else AppStrings.get(R.string.val_closed_listener),
                 verdict = if (isOpen) Severity.SOFT else Severity.PASS,
             )
         }
@@ -77,15 +80,11 @@ object LocalListenerProbe {
             Check(
                 id = "local_proxy_listeners",
                 category = Category.PROBES,
-                label = "Local proxy listeners",
-                value = if (open.isEmpty()) "none open" else
-                    open.joinToString { "${it.first}/${it.second}" },
+                label = AppStrings.get(R.string.check_local_proxy_listeners_label),
+                value = if (open.isEmpty()) AppStrings.get(R.string.val_none)
+                    else open.joinToString { AppStrings.get(R.string.val_listener_summary, it.first, it.second) },
                 severity = if (open.isNotEmpty()) Severity.SOFT else Severity.PASS,
-                explanation = "TCP-connects to 127.0.0.1 on the proxy ports listed in the methodology " +
-                    "(SOCKS 1080/9000, Tor 9050/9051/9150, HTTP 3128/8080/8888, transparent 4080/7000/12345, " +
-                    "Shadowsocks/V2Ray local 1081/1086, etc.). Any successful connect = a proxy is running " +
-                    "on the device. SELinux blocks /proc/net/tcp enumeration, so this is the only fully " +
-                    "reliable way for an unprivileged app to detect other-uid loopback listeners.",
+                explanation = AppStrings.get(R.string.check_local_proxy_listeners_explanation),
                 details = details,
             )
         )
