@@ -33,7 +33,10 @@ data class ProbeResult(
     val error: String? = null,
     /** Forwarding-style headers observed on this probe's HTTP response. */
     val proxyHeaders: Map<String, String> = emptyMap(),
-)
+) {
+    val isIpv6: Boolean get() = ip?.contains(":") == true
+    val isIpv4: Boolean get() = ip != null && !ip.contains(":")
+}
 
 private val DATACENTER_KEYWORDS = listOf(
     "digitalocean", "amazon", "aws", "hetzner", "ovh", "linode",
@@ -91,13 +94,25 @@ object GeoIpProbes {
                 async { ifconfigCo() },
                 async { myipCom() },
                 async { cloudflareTrace() },
+                async { yandexIpv4() },
+                async { yandexIpv6() },
+                async { ifconfigMe() },
+                async { checkipAws() },
+                async { ipMailRu() },
+                async { ipApiV6() },
+                async { dnsResolverEgress() },
             ).awaitAll()
         }
     }
 
+    /** Providers whose IP is NOT the v4 HTTP exit. Excluded from all aggregation checks;
+     *  their egresses are compared in dedicated Consistency checks instead. */
+    internal val AGGREGATION_EXCLUDED = setOf("ip-api-v6", "resolver-egress", "yandex-v6")
+
     fun derive(results: List<ProbeResult>): List<Check> {
         val out = mutableListOf<Check>()
         val ok = results.filter { it.error == null && it.ip != null }
+        val okV4 = ok.filter { it.provider !in AGGREGATION_EXCLUDED && it.isIpv4 }
 
         // Per-probe rows
         for (r in results) {
@@ -116,8 +131,8 @@ object GeoIpProbes {
             )
         }
 
-        // External country (canonical)
-        val country = ok.map { it.country?.uppercase() }.firstOrNull { !it.isNullOrEmpty() }
+        // External country (canonical) — only v4 HTTP-exit probes; v6/resolver-egress live in Consistency.
+        val country = okV4.map { it.country?.uppercase() }.firstOrNull { !it.isNullOrEmpty() }
         out += Check(
             id = "external_country",
             category = Category.GEOIP,
@@ -140,9 +155,11 @@ object GeoIpProbes {
             val cdnMatch = if (org != null) {
                 CDN_KEYWORDS.firstOrNull { org.contains(it, ignoreCase = true) }
             } else null
+            val excluded = p.provider in AGGREGATION_EXCLUDED
             val verdict = when {
                 p.error != null -> Severity.INFO
                 org == null -> Severity.INFO
+                excluded -> Severity.INFO             // v6 / resolver-egress scored in Consistency
                 cdnMatch != null -> Severity.INFO     // CDN whitelist wins over datacenter match
                 dcMatch != null -> Severity.HARD
                 else -> Severity.PASS
@@ -150,6 +167,8 @@ object GeoIpProbes {
             val reported = when {
                 p.error != null -> "ERROR: ${p.error}"
                 org == null -> "(no org field)"
+                excluded && dcMatch != null -> "$org  ←  \"$dcMatch\" (excluded: compared in Consistency)"
+                excluded -> "$org  (excluded: compared in Consistency)"
                 cdnMatch != null -> "$org  ←  CDN whitelist (\"$cdnMatch\")"
                 dcMatch != null -> "$org  ←  matched \"$dcMatch\""
                 else -> org
@@ -157,7 +176,7 @@ object GeoIpProbes {
             DetailEntry(source = p.provider, reported = reported, verdict = verdict)
         }
         val isDc = asnDetails.any { it.verdict == Severity.HARD }
-        val firstOrg = ok.firstNotNullOfOrNull { it.org } ?: "?"
+        val firstOrg = okV4.firstNotNullOfOrNull { it.org } ?: "?"
         out += Check(
             id = "asn_class",
             category = Category.GEOIP,
@@ -180,8 +199,10 @@ object GeoIpProbes {
                 if (p.isHosting == false) add("hosting=false")
                 if (p.isVpn == false) add("vpn=false")
             }
+            val excluded = p.provider in AGGREGATION_EXCLUDED
             val verdict = when {
                 p.error != null -> Severity.INFO
+                excluded -> Severity.INFO
                 p.isProxy == true || p.isHosting == true || p.isVpn == true -> Severity.HARD
                 fields.isEmpty() -> Severity.INFO
                 else -> Severity.PASS
@@ -206,15 +227,22 @@ object GeoIpProbes {
             details = repDetails,
         )
 
-        // Probe disagreement on IP — short value, per-probe IP in details
+        // Probe disagreement on IP — short value, per-probe IP in details. Only compare the
+        // v4 HTTP-exit probes; v6 and resolver-egress are structurally different IPs.
         val ipDetails = results.map { p ->
+            val excluded = p.provider in AGGREGATION_EXCLUDED
             DetailEntry(
                 source = p.provider,
-                reported = p.error?.let { "ERROR: $it" } ?: (p.ip ?: "?"),
-                verdict = if (p.error != null || p.ip == null) Severity.INFO else Severity.PASS,
+                reported = when {
+                    p.error != null -> "ERROR: ${p.error}"
+                    p.ip == null -> "?"
+                    excluded -> "${p.ip}  (excluded from agreement check)"
+                    else -> p.ip
+                },
+                verdict = if (p.error != null || p.ip == null || excluded) Severity.INFO else Severity.PASS,
             )
         }
-        val ips = ok.mapNotNull { it.ip }.toSet()
+        val ips = okV4.mapNotNull { it.ip }.toSet()
         out += Check(
             id = "probe_ip_agreement",
             category = Category.GEOIP,
@@ -225,8 +253,8 @@ object GeoIpProbes {
             details = ipDetails,
         )
 
-        // Probe disagreement on country (DB lag)
-        val countries = ok.mapNotNull { it.country?.uppercase() }.toSet()
+        // Probe disagreement on country (DB lag) — v4 HTTP-exit probes only.
+        val countries = okV4.mapNotNull { it.country?.uppercase() }.toSet()
         if (countries.size > 1) {
             out += Check(
                 id = "probe_country_agreement",
@@ -394,6 +422,138 @@ object GeoIpProbes {
         ProbeResult("myip.com", ip = r.ip, country = r.cc ?: r.country, proxyHeaders = f.proxyHeaders)
     } catch (e: Exception) {
         ProbeResult("myip.com", error = e.message ?: "error")
+    }
+
+    private val IPV4_REGEX = Regex("""\b(?:\d{1,3}\.){3}\d{1,3}\b""")
+    private val IPV6_REGEX = Regex("""(?:[0-9a-fA-F]{1,4}:){2,7}[0-9a-fA-F]{1,4}""")
+
+    /** Additional external-IP discovery endpoints documented in public anti-fraud research
+     *  as canonical checkers used by RU-facing apps. We mirror them so users can see what
+     *  the same checkers see. Responses are either JSON (Yandex) or plain text with the IP;
+     *  we regex-extract to tolerate both. */
+    private fun yandexIpv4(): ProbeResult = try {
+        val f = fetch("https://ipv4-internet.yandex.net/api/v0/ip")
+        val body = f.body ?: return ProbeResult("yandex-v4", error = "no body", proxyHeaders = f.proxyHeaders)
+        val ip = IPV4_REGEX.find(body)?.value
+        ProbeResult("yandex-v4", ip = ip, proxyHeaders = f.proxyHeaders)
+    } catch (e: Exception) {
+        ProbeResult("yandex-v4", error = e.message ?: "error")
+    }
+
+    private fun yandexIpv6(): ProbeResult = try {
+        val f = fetch("https://ipv6-internet.yandex.net/api/v0/ip")
+        val body = f.body ?: return ProbeResult("yandex-v6", error = "no body", proxyHeaders = f.proxyHeaders)
+        val ip = IPV6_REGEX.find(body)?.value ?: IPV4_REGEX.find(body)?.value
+        ProbeResult("yandex-v6", ip = ip, proxyHeaders = f.proxyHeaders)
+    } catch (e: Exception) {
+        ProbeResult("yandex-v6", error = e.message ?: "error")
+    }
+
+    private fun ifconfigMe(): ProbeResult = try {
+        val f = fetch("https://ifconfig.me/ip")
+        val body = f.body?.trim()
+        if (body.isNullOrEmpty()) ProbeResult("ifconfig.me", error = "no body", proxyHeaders = f.proxyHeaders)
+        else {
+            val ip = IPV6_REGEX.find(body)?.value ?: IPV4_REGEX.find(body)?.value ?: body
+            ProbeResult("ifconfig.me", ip = ip, proxyHeaders = f.proxyHeaders)
+        }
+    } catch (e: Exception) {
+        ProbeResult("ifconfig.me", error = e.message ?: "error")
+    }
+
+    private fun checkipAws(): ProbeResult = try {
+        val f = fetch("https://checkip.amazonaws.com/")
+        val body = f.body?.trim()
+        if (body.isNullOrEmpty()) ProbeResult("aws-checkip", error = "no body", proxyHeaders = f.proxyHeaders)
+        else ProbeResult("aws-checkip", ip = IPV4_REGEX.find(body)?.value ?: body, proxyHeaders = f.proxyHeaders)
+    } catch (e: Exception) {
+        ProbeResult("aws-checkip", error = e.message ?: "error")
+    }
+
+    private fun ipMailRu(): ProbeResult = try {
+        val f = fetch("https://ip.mail.ru/")
+        val body = f.body ?: return ProbeResult("ip.mail.ru", error = "no body", proxyHeaders = f.proxyHeaders)
+        val ip = IPV4_REGEX.find(body)?.value
+        ProbeResult("ip.mail.ru", ip = ip, proxyHeaders = f.proxyHeaders)
+    } catch (e: Exception) {
+        ProbeResult("ip.mail.ru", error = e.message ?: "error")
+    }
+
+    /**
+     * Geolocate the device's IPv6 exit. Router VPNs typically tunnel IPv4 only — if IPv6 is
+     * reachable it usually egresses via the native ISP, producing a v4/v6 split. We fetch the
+     * v6 address from api6.ipify.org (IPv6-only hostname forces a direct v6 path) and then
+     * resolve its geo via ip-api.com, which accepts arbitrary-IP lookups on the free tier.
+     */
+    private fun ipApiV6(): ProbeResult = try {
+        val v6Fetched = fetch("https://api6.ipify.org?format=json")
+        val v6 = runCatching {
+            AppJson.decodeFromString(IpifyResp.serializer(), v6Fetched.body.orEmpty()).ip
+        }.getOrNull()
+        if (v6.isNullOrBlank()) {
+            ProbeResult("ip-api-v6", error = "no IPv6 reachable")
+        } else {
+            val f = fetch("http://ip-api.com/json/$v6?fields=status,countryCode,regionName,city,isp,org,as,proxy,hosting,mobile,query,timezone")
+            val body = f.body
+                ?: return ProbeResult("ip-api-v6", ip = v6, error = "geo lookup failed", proxyHeaders = f.proxyHeaders)
+            val r = AppJson.decodeFromString(IpApiResp.serializer(), body)
+            ProbeResult(
+                provider = "ip-api-v6",
+                ip = r.query ?: v6,
+                country = r.countryCode,
+                region = r.regionName,
+                city = r.city,
+                org = r.isp ?: r.org,
+                asn = r.`as`,
+                isProxy = r.proxy,
+                isHosting = r.hosting,
+                timezone = r.timezone,
+                proxyHeaders = f.proxyHeaders,
+            )
+        }
+    } catch (e: Exception) {
+        ProbeResult("ip-api-v6", error = e.message ?: "error")
+    }
+
+    /**
+     * Resolve `whoami.akamai.net` via the system DNS resolver. Akamai's authoritative server
+     * returns an A record whose value is the egress IP of the recursive resolver that made
+     * the query — i.e. the IP the DNS traffic actually exits from. We then geolocate that IP.
+     *
+     * Mismatch between this resolver-egress country/ASN and the HTTP-exit country/ASN is a
+     * classic DNS leak signature: VPN tunnels HTTP but DNS bypasses the tunnel (or vice
+     * versa). Also catches router-side DNS interception that rewrites queries to a
+     * different upstream than the VPN would use.
+     */
+    private fun dnsResolverEgress(): ProbeResult = try {
+        val resolverIp = runCatching {
+            java.net.InetAddress.getAllByName("whoami.akamai.net")
+                .firstOrNull { it is java.net.Inet4Address }
+                ?.hostAddress
+        }.getOrNull()
+        if (resolverIp.isNullOrBlank()) {
+            ProbeResult("resolver-egress", error = "whoami.akamai.net unresolvable")
+        } else {
+            val f = fetch("http://ip-api.com/json/$resolverIp?fields=status,countryCode,regionName,city,isp,org,as,proxy,hosting,mobile,query,timezone")
+            val body = f.body
+                ?: return ProbeResult("resolver-egress", ip = resolverIp, error = "geo lookup failed", proxyHeaders = f.proxyHeaders)
+            val r = AppJson.decodeFromString(IpApiResp.serializer(), body)
+            ProbeResult(
+                provider = "resolver-egress",
+                ip = r.query ?: resolverIp,
+                country = r.countryCode,
+                region = r.regionName,
+                city = r.city,
+                org = r.isp ?: r.org,
+                asn = r.`as`,
+                isProxy = r.proxy,
+                isHosting = r.hosting,
+                timezone = r.timezone,
+                proxyHeaders = f.proxyHeaders,
+            )
+        }
+    } catch (e: Exception) {
+        ProbeResult("resolver-egress", error = e.message ?: "error")
     }
 
     private fun cloudflareTrace(): ProbeResult = try {

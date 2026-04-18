@@ -4,7 +4,9 @@ import android.content.Context
 import android.telephony.TelephonyManager
 import net.vpndetector.detect.Category
 import net.vpndetector.detect.Check
+import net.vpndetector.detect.DetailEntry
 import net.vpndetector.detect.Severity
+import net.vpndetector.detect.geoip.GeoIpProbes
 import net.vpndetector.detect.geoip.ProbeResult
 import java.util.Locale
 import java.util.TimeZone
@@ -22,9 +24,14 @@ object ConsistencyChecks {
     fun run(ctx: Context, probes: List<ProbeResult>): List<Check> {
         val out = mutableListOf<Check>()
         val ok = probes.filter { it.error == null }
-        val ipCountry = ok.firstNotNullOfOrNull { it.country }?.uppercase()
-        val ipOrg = ok.firstNotNullOfOrNull { it.org }
-        val ipTz = ok.firstNotNullOfOrNull { it.timezone }
+        // For canonical v4 exit info, exclude the specialty probes that describe a different
+        // egress (IPv6 exit, DNS resolver egress). They get their own dedicated checks below.
+        val okV4 = ok.filter {
+            it.provider !in GeoIpProbes.AGGREGATION_EXCLUDED && it.ip?.contains(":") != true
+        }
+        val ipCountry = okV4.firstNotNullOfOrNull { it.country }?.uppercase()
+        val ipOrg = okV4.firstNotNullOfOrNull { it.org }
+        val ipTz = okV4.firstNotNullOfOrNull { it.timezone }
 
         // simCountryIso / networkCountryIso / networkOperatorName / networkOperator do NOT
         // require READ_PHONE_STATE on any modern Android — keep these checks ungated.
@@ -173,6 +180,104 @@ object ConsistencyChecks {
                 value = if (found.isEmpty()) "none" else "${found.size}: ${found.take(3).joinToString()}",
                 severity = if (mismatch) Severity.SOFT else Severity.INFO,
                 explanation = "Strong fingerprint: many Russian banking/social apps + non-RU IP.",
+            )
+        }
+
+        // 10. IPv4 vs IPv6 exit split — the router-VPN signature.
+        // Router-side VPNs almost always tunnel IPv4 only; IPv6 traffic from the phone bypasses
+        // the tunnel and exits via the native ISP. If v4 is in a foreign datacenter and v6 is
+        // a RU residential ISP (or vice versa), that's the tunnel type talking. Mismatch on
+        // country OR ASN is HARD — anti-fraud SDKs that dual-stack-probe catch this directly.
+        run {
+            val v6Probe = ok.firstOrNull { it.provider == "ip-api-v6" }
+            val v4Country = ipCountry
+            val v4Org = ipOrg
+            val v6Country = v6Probe?.country?.uppercase()
+            val v6Org = v6Probe?.org
+            val countryMismatch = v4Country != null && v6Country != null && v4Country != v6Country
+            val orgMismatch = v4Org != null && v6Org != null &&
+                !v4Org.equals(v6Org, ignoreCase = true) &&
+                !v4Org.contains(v6Org, ignoreCase = true) &&
+                !v6Org.contains(v4Org, ignoreCase = true)
+            val haveBoth = v6Probe != null && v6Probe.error == null && v6Probe.ip != null && v4Country != null
+            val sev = when {
+                !haveBoth -> Severity.INFO
+                countryMismatch -> Severity.HARD
+                orgMismatch -> Severity.SOFT
+                else -> Severity.PASS
+            }
+            val details = listOf(
+                DetailEntry("v4 exit", "country=${v4Country ?: "?"}  org=${v4Org ?: "?"}", Severity.INFO),
+                DetailEntry("v6 exit",
+                    if (v6Probe == null) "no v6 probe"
+                    else if (v6Probe.error != null) "ERROR: ${v6Probe.error}"
+                    else "country=${v6Country ?: "?"}  org=${v6Org ?: "?"}  ip=${v6Probe.ip}",
+                    if (countryMismatch) Severity.HARD else if (orgMismatch) Severity.SOFT else Severity.INFO),
+            )
+            out += Check(
+                id = "v4_v6_exit_split",
+                category = Category.CONSISTENCY,
+                label = "IPv4 vs IPv6 exit split",
+                value = when {
+                    !haveBoth -> "v4=${v4Country ?: "?"} · v6=${v6Probe?.error ?: v6Country ?: "n/a"}"
+                    countryMismatch -> "country split: v4=$v4Country v6=$v6Country"
+                    orgMismatch -> "ASN split: v4=$v4Org v6=$v6Org"
+                    else -> "aligned ($v4Country / ${v4Org ?: "?"})"
+                },
+                severity = sev,
+                explanation = "Router-side VPNs typically tunnel IPv4 only, leaving IPv6 on the native " +
+                    "ISP. If v4 and v6 exit in different countries (HARD) or different ASNs (SOFT) the " +
+                    "device is on a partial/asymmetric tunnel — a signature anti-fraud SDKs catch by " +
+                    "dual-stack probing. INFO when v6 is not reachable (single-stack network).",
+                details = details,
+            )
+        }
+
+        // 11. DNS resolver egress vs HTTP exit.
+        // `whoami.akamai.net` returns an A record equal to the recursive resolver's egress IP.
+        // If that egress is in a different country than the HTTP exit the DNS path is not
+        // traversing the same tunnel — classic DNS leak, or router DNS-interception routing
+        // queries to an upstream outside the VPN.
+        run {
+            val resolver = ok.firstOrNull { it.provider == "resolver-egress" }
+            val rCountry = resolver?.country?.uppercase()
+            val rOrg = resolver?.org
+            val countryMismatch = ipCountry != null && rCountry != null && ipCountry != rCountry
+            val orgMismatch = ipOrg != null && rOrg != null &&
+                !ipOrg.equals(rOrg, ignoreCase = true) &&
+                !ipOrg.contains(rOrg, ignoreCase = true) &&
+                !rOrg.contains(ipOrg, ignoreCase = true)
+            val haveBoth = resolver != null && resolver.error == null && resolver.ip != null && ipCountry != null
+            val sev = when {
+                !haveBoth -> Severity.INFO
+                countryMismatch -> Severity.HARD
+                orgMismatch -> Severity.SOFT
+                else -> Severity.PASS
+            }
+            val details = listOf(
+                DetailEntry("HTTP exit", "country=${ipCountry ?: "?"}  org=${ipOrg ?: "?"}", Severity.INFO),
+                DetailEntry("DNS resolver egress",
+                    if (resolver == null) "no probe"
+                    else if (resolver.error != null) "ERROR: ${resolver.error}"
+                    else "country=${rCountry ?: "?"}  org=${rOrg ?: "?"}  ip=${resolver.ip}",
+                    if (countryMismatch) Severity.HARD else if (orgMismatch) Severity.SOFT else Severity.INFO),
+            )
+            out += Check(
+                id = "dns_vs_exit",
+                category = Category.CONSISTENCY,
+                label = "DNS resolver vs HTTP exit",
+                value = when {
+                    !haveBoth -> "exit=${ipCountry ?: "?"} · dns=${resolver?.error ?: rCountry ?: "n/a"}"
+                    countryMismatch -> "country leak: exit=$ipCountry dns=$rCountry"
+                    orgMismatch -> "ASN leak: exit=$ipOrg dns=$rOrg"
+                    else -> "aligned ($ipCountry / ${ipOrg ?: "?"})"
+                },
+                severity = sev,
+                explanation = "whoami.akamai.net returns the recursive DNS resolver's egress IP. If the " +
+                    "resolver egresses in a different country than the HTTP exit, DNS is bypassing the " +
+                    "tunnel (or the router is intercepting port 53 to a different upstream). SDKs that " +
+                    "correlate DNS and HTTP geolocation flag this directly.",
+                details = details,
             )
         }
 

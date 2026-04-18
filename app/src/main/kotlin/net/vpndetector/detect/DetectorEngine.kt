@@ -10,6 +10,7 @@ import net.vpndetector.detect.consistency.ConsistencyChecks
 import net.vpndetector.detect.geoip.GeoIpProbes
 import net.vpndetector.detect.probes.ActiveProbes
 import net.vpndetector.detect.probes.LocalListenerProbe
+import net.vpndetector.detect.probes.StunProbe
 import net.vpndetector.detect.probes.Traceroute
 import net.vpndetector.detect.system.SystemChecks
 
@@ -28,6 +29,7 @@ object DetectorEngine {
             val activeDef = async { ActiveProbes.run() }
             val tracerouteDef = async { Traceroute.run(ctx) }
             val listenerDef = async { LocalListenerProbe.run() }
+            val stunDef = async { StunProbe.run(probesDef.await()) }
 
             val system = systemDef.await()
             val probes = probesDef.await()
@@ -36,9 +38,10 @@ object DetectorEngine {
             val active = activeDef.await()
             val traceroute = tracerouteDef.await()
             val listener = listenerDef.await()
+            val stun = stunDef.await()
             val history = HistoryChecks.run(geoip, previousRun)
 
-            val all = system + geoip + consistency + active + traceroute + listener + history
+            val all = system + geoip + consistency + active + traceroute + listener + stun + history
             val now = System.currentTimeMillis()
             RunResult(
                 timestamp = now,

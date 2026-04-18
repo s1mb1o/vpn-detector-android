@@ -11,7 +11,10 @@
 
 ## What leaves the device, and to whom
 
-Tapping **Run all checks** sends one HTTP request to each of the following public services. They are how the diagnostic measures the network — your exit IP **is** the measurement. There is no other outbound traffic.
+Tapping **Run all checks** sends the diagnostic probes themselves. That
+includes regular HTTP requests, DNS resolution, UDP STUN, and
+`/system/bin/ping` for traceroute. Your exit IP **is** the measurement.
+There is no analytics or backend beyond those probes.
 
 | Endpoint | Purpose |
 |---|---|
@@ -21,11 +24,17 @@ Tapping **Run all checks** sends one HTTP request to each of the following publi
 | `ifconfig.co` | IP + ASN + timezone |
 | `api.myip.com` | IP + country |
 | `www.cloudflare.com/cdn-cgi/trace` | Cloudflare WARP detection |
-| `yandex.ru`, `mail.ru`, `vk.com` | RU latency anchors (HEAD) |
-| `google.com`, `cloudflare.com`, `wikipedia.org` | foreign latency anchors (HEAD) |
+| `ipv4-internet.yandex.net`, `ipv6-internet.yandex.net` | additional external IP endpoints |
+| `ifconfig.me`, `checkip.amazonaws.com`, `ip.mail.ru` | additional external IP endpoints |
+| `whoami.akamai.net` | DNS resolver egress fingerprint |
+| `yandex.ru`, `mail.ru`, `gosuslugi.ru` | RU latency anchors (HEAD) |
+| `google.com`, `cloudflare.com`, `apple.com` | foreign latency anchors (HEAD) |
 | `connectivitycheck.gstatic.com` | captive-portal probe |
+| `stun.l.google.com:19302` | STUN mapped-address probe |
+| `1.1.1.1`, `8.8.8.8`, `77.88.8.8` | traceroute anchors via `/system/bin/ping -t N` |
 
-These services will log your exit IP, the timestamp, and possibly an HTTP `User-Agent`. The OkHttp client used by the app:
+These services will log your exit IP, the timestamp, and possibly an HTTP
+`User-Agent`. The OkHttp-based probes in the app:
 
 - has no cookie jar (cookies are not stored)
 - sends `User-Agent: vpn-detector/0.1` for the GeoIP probes; the latency anchors get OkHttp's default UA

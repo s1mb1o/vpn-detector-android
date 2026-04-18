@@ -16,10 +16,10 @@ A summary, citation, and the catalog mapping are in [`docs/source-methodology.md
 
 Four categories, full catalog in [`docs/specs/01_signal-catalog.md`](docs/specs/01_signal-catalog.md):
 
-- **System** — `TRANSPORT_VPN`, `tun*`/`wg*` interfaces, default route via tunnel, HTTP proxy, Private DNS, MTU, installed VPN clients, root indicators, Telegram presence.
-- **GeoIP** — six parallel probes (ipify, ipinfo, ip-api, ifconfig.co, myip.com, Cloudflare cdn-cgi/trace); datacenter ASN classification; reputation flags; probe disagreement.
-- **Consistency** — cross-checks SIM country / network country / MCC / carrier name / locale / timezone against the external IP. The decisive category for the methodology.
-- **Active probes** — RU vs foreign latency anchors, IPv6 reachability, captive portal.
+- **System** — `TRANSPORT_VPN`, `NET_CAPABILITY_NOT_VPN`, tunnel interfaces, default route via tunnel, proxies, `VpnTransportInfo`, DNS / Private DNS, MTU, route anomalies, installed VPN and anti-detection apps, root indicators, Telegram presence.
+- **GeoIP** — parallel external-IP probes (ipify, ipinfo, ip-api, ifconfig.co, myip.com, Cloudflare trace, Yandex IPv4/IPv6, ifconfig.me, AWS checkip, Mail.ru, IPv6 geo lookup, DNS-resolver egress); datacenter ASN classification; reputation flags; probe disagreement.
+- **Consistency** — SIM / network / MCC / carrier / locale / timezone cross-checks against the external IP, plus IPv4-vs-IPv6 exit split and DNS-resolver-egress vs HTTP-exit mismatch. The decisive category for the methodology.
+- **Probes** — latency anchors, STUN, traceroute, local loopback listeners, captive portal.
 
 Each row reports raw value, severity (PASS / INFO / WARN / FAIL) and a one-line explanation. Tap a row to see the per-source breakdown — for each multi-source check, the dialog lists exactly which probe / anchor / package returned what, so a tester can isolate which specific input drove the verdict.
 

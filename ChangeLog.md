@@ -12,6 +12,52 @@ tunnelled) are now directly visible — the RU target stays PASS while
 the foreign targets go HARD. Previously a single 1.1.1.1 target
 couldn't distinguish "full VPN" from "whitelist routing".
 
+## 2026-04-15 — Router-VPN signals: v4/v6 split, DNS leak, STUN
+
+Three new detections targeting the router-side VPN scenario, where
+device-local flags (`TRANSPORT_VPN`, `tun*`, `VpnTransportInfo`) are
+structurally blind because the tunnel terminates on the gateway, not
+the phone.
+
+- `v4_v6_exit_split` (Consistency): geolocates the IPv6 exit via a
+  new `ip-api-v6` probe and compares country/ASN to the v4 HTTP exit.
+  Country mismatch = HARD, ASN mismatch = SOFT. Catches the common
+  case of a router that only tunnels v4, leaving v6 on the native ISP.
+- `dns_vs_exit` (Consistency): new `resolver-egress` probe resolves
+  `whoami.akamai.net` via the system DNS resolver — Akamai's
+  authoritative server returns an A record equal to the recursive
+  resolver's egress IP, which is then geolocated. Country mismatch
+  with the HTTP exit = HARD (DNS leak or port-53 interception).
+- `stun_mapped_vs_exit` (Probes): RFC 5389 STUN Binding Request to
+  `stun.l.google.com:19302`, parses XOR-MAPPED-ADDRESS, compares to
+  the v4 HTTP exit. Mismatch = HARD (WebRTC/UDP bypassing the tunnel).
+  No STUN response = INFO (UDP blackholed upstream, indeterminate).
+
+Supporting changes:
+- `ProbeResult` gained `isIpv4` / `isIpv6` helpers.
+- `GeoIpProbes.derive()` excludes the two new specialty probes from
+  aggregation checks (`asn_class`, `reputation_flag`,
+  `probe_ip_agreement`, `probe_country_agreement`, `external_country`)
+  — they describe different egresses by design and would otherwise
+  trip those checks spuriously. Same fix removes a pre-existing
+  false-positive where `yandex-v6` counted against v4 IP agreement.
+
+## 2026-04-15 — Additional GeoIP probes
+
+Added five more external-IP probes mirroring the checkers documented
+in public RU anti-fraud research:
+
+- `yandex-v4` — ipv4-internet.yandex.net
+- `yandex-v6` — ipv6-internet.yandex.net (only endpoint that surfaces
+  IPv6 reachability)
+- `ifconfig.me` — independent, plain-text `/ip`
+- `aws-checkip` — checkip.amazonaws.com, Amazon
+- `ip.mail.ru` — Mail.ru / VK Group (HTML, IP extracted via regex)
+
+Each probe contributes to the existing `probe_ip_agreement` and
+transparent-proxy-header checks. `api.ipify.org` was already wired
+(provider `ipify`) and unchanged.
+
 ## 2026-04-10 (release v0.5.0) — Anti-detection toolchain, cellular & GeoIP fixes
 
 New checks (System tab):
