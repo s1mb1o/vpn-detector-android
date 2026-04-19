@@ -19,3 +19,63 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+--------------------------------------------------------------------------------
+
+ADDITIONAL USE RESTRICTIONS
+
+This Software is a diagnostic and compliance-testing tool. The permission to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+granted above is conditional on the following restrictions. Any use that
+violates these restrictions is not permitted under this License.
+
+1. No circumvention of access restrictions.
+
+   The Software MUST NOT be used, directly or indirectly, to build, operate,
+   optimise, tune, calibrate, or evade detection by any system or service
+   whose purpose is to circumvent lawful or unlawful restrictions on access
+   to information resources, including but not limited to VPN, proxy, DPI
+   bypass, traffic obfuscation, or censorship-circumvention tooling.
+
+2. No surveillance of users.
+
+   The Software MUST NOT be used, directly or indirectly, to collect,
+   correlate, aggregate, profile, or otherwise process information about
+   individual users, their identities, their devices, their network
+   configuration, or the way in which they access or use the Internet, nor
+   to feed any such information into law-enforcement, anti-fraud,
+   telecommunications-regulator, or similar surveillance pipelines, whether
+   run by the state, by a private party acting on behalf of the state, or
+   by any other third party.
+
+--------------------------------------------------------------------------------
+
+ДОПОЛНИТЕЛЬНЫЕ ОГРАНИЧЕНИЯ ИСПОЛЬЗОВАНИЯ
+
+Настоящее Программное обеспечение представляет собой диагностический и
+тестовый инструмент. Разрешение на использование, копирование, изменение,
+объединение, публикацию, распространение, сублицензирование и/или продажу
+копий, предоставленное выше, обусловлено следующими ограничениями.
+Использование, нарушающее эти ограничения, не допускается условиями
+настоящей лицензии.
+
+1. Запрещается использование для обхода ограничений доступа.
+
+   Запрещается использовать Программное обеспечение, прямо или косвенно,
+   для построения, эксплуатации, оптимизации, настройки, калибровки или
+   уклонения от выявления систем, служб или инструментов, назначение
+   которых — обход законных или незаконных ограничений доступа к
+   информационным ресурсам, включая, но не ограничиваясь VPN, прокси,
+   средства обхода DPI, обфускации трафика и средств обхода цензуры.
+
+2. Запрещается использование для сбора информации о пользователях.
+
+   Запрещается использовать Программное обеспечение, прямо или косвенно,
+   для сбора, сопоставления, агрегирования, профилирования или иной
+   обработки сведений об отдельных пользователях, их личности, их
+   устройствах, их сетевой конфигурации или о способах использования ими
+   сети Интернет, а также для передачи таких сведений в системы
+   правоохранительных органов, анти-фрод систем, регуляторов связи или
+   иные надзорные каналы, независимо от того, эксплуатируются ли такие
+   системы государством, частной стороной, действующей по поручению
+   государства, либо любым иным третьим лицом.
