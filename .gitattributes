@@ -1,0 +1,4 @@
+# Prevent GitHub linguist from auto-labelling this repo as MIT. The LICENSE
+# uses MIT text as its base but adds use restrictions, so the project is
+# source-available, not OSI-approved open source.
+LICENSE linguist-detectable=false
